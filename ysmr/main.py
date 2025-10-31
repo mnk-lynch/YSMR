@@ -20,6 +20,7 @@ import multiprocessing as mp
 import os
 from datetime import datetime
 from time import sleep
+from moviepy import VideoFileClip # MNL added 4/18/2025
 
 from ysmr.helper_file import (check_logfile, collate_results_csv_to_xlsx, create_results_folder, elapsed_time,
                               get_any_paths, get_configs, get_loggers, log_infos, logging_configurer,
@@ -251,6 +252,7 @@ def ysmr(paths=None, settings=None, result_folder=None, multiprocess=False):
             if not paths:
                 paths = [settings['path to test video']]
             logger.info('Test video path selected')
+
         # Expand user if necessary
         paths_expanded = [os.path.expanduser(path) for path in paths]
         paths = paths_expanded
@@ -328,6 +330,32 @@ def ysmr(paths=None, settings=None, result_folder=None, multiprocess=False):
     logger.info('Elapsed time: {}\n{}\n'.format(elapsed_time(t_one), filler_for_logger))
     stop_logging_queue(logger, settings)
     listener.join()
+
+    # VIDEO TRIMMING LOGIC added 4/18/2025 - 4/21/2025 MNL
+        #
+    # trim_enabled = settings.get('enable trimming', False)
+    # trim_start = float(settings.get('trim start seconds', 0))
+    # trim_end = float(settings.get('trim end seconds', 0))
+    #
+    # if trim_enabled and trim_end > trim_start:
+    #     trimmed_paths = []
+    #     for path in paths:
+    #         base, ext = os.path.splitext(path)
+    #         trimmed_path = f"{base}_trimmed_{int(trim_start)}to{int(trim_end)}{ext}"
+    #         if not os.path.exists(trimmed_path):
+    #             print(f"Trimming video {os.path.basename(path)} from {trim_start}s to {trim_end}s...")
+    #             try:
+    #                 clip = VideoFileClip(path).subclip(trim_start, trim_end)
+    #                 clip.write_videofile(trimmed_path, codec='libx264')
+    #             except Exception as e:
+    #                 logger.exception(f"Failed to trim video {path}: {e}")
+    #                 trimmed_paths.append(path)  # fall back to original
+    #                 continue
+    #         else:
+    #             print(f"Using existing trimmed video: {trimmed_path}")
+    #         trimmed_paths.append(trimmed_path)
+    #     paths = trimmed_paths
+
     return paths_finished
 
 
