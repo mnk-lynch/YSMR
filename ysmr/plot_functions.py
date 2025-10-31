@@ -296,7 +296,8 @@ def violin_plot(df, save_path, category, cut_off_category, cut_off_list, plot_ti
         'figure.titlesize': med
     }
     plt.rcParams.update(params)
-    plt.style.use('seaborn-whitegrid')
+    #plt.style.use('seaborn-whitegrid') #sns.set_style("whitegrid")
+    sns.set_style("whitegrid")
     save_fig = False
     if axis is None:  # in case it's not plotted/saved directly
         fig = plt.figure()
@@ -322,6 +323,13 @@ def violin_plot(df, save_path, category, cut_off_category, cut_off_list, plot_ti
                    bw=.2,
                    # inner='stick',
                    )
+    sns.swarmplot(y=df[category],
+                  x=df[cut_off_category],
+                  orient='v',
+                  color="grey",
+                  size=3,
+                  alpha=0.5,
+    )
     axis.set(ylim=(y_min, y_max))
     # Remove top and right border
     sns.despine(ax=axis, offset=0)
