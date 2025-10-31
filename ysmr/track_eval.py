@@ -95,6 +95,20 @@ def track_bacteria(video_path, settings=None, result_folder=None):
     if not result_folder:
         result_folder = create_results_folder(video_path)
 
+    ## ROI LOGIC ADDED 10/15/25 MNL
+    # ROI_x = settings.get('ROI_x', 0)
+    # ROI_y = settings.get('ROI_y', 0)
+    # ROI_w = settings.get('ROI_width', frame_width)  # Use full width/height as default
+    # ROI_h = settings.get('ROI_height', frame_height)  # Use full width/height as default
+    #
+    # # Ensure ROI is valid before starting loop
+    # if ROI_x + ROI_w > frame_width or ROI_y + ROI_h > frame_height:
+    #     logger.critical('ROI settings are outside the frame boundaries. Analysis stopped.')
+    #     return None
+    #
+    # if settings['verbose']:
+    #     logger.info(f"Using ROI: x={ROI_x}, y={ROI_y}, w={ROI_w}, h={ROI_h}")
+
     pathname, filename_ext = os.path.split(video_path)
     filename = os.path.splitext(filename_ext)[0]
     logger.info('Starting with file {}'.format(video_path))
@@ -169,6 +183,9 @@ def track_bacteria(video_path, settings=None, result_folder=None):
         # Stop conditions
         if not ret and (frame_count == curr_frame_count + 1 or  # some file formats skip one frame
                         frame_count == curr_frame_count) and frame_count >= settings['minimal frame count']:
+        #if not ret and (frame_count == curr_frame_count + 1 or  # some file formats skip one frame
+                        #frame_count == curr_frame_count) and frame_count >= settings['minimal frame count'] or curr_frame_count >= 180 * fps_of_file: # added 3/28/25 to test functionality of cutting off a video at 3 min
+            # ^ added 3/18/25, did not seem to work. Will try again.
             # If a frame could not be retrieved and the minimum frame nr. has been reached
             logger.debug('Frames from file {} read.'.format(filename_ext))
             break
@@ -176,6 +193,12 @@ def track_bacteria(video_path, settings=None, result_folder=None):
             logger.critical('Error during cap.read() with file {}'.format(video_path))
             error_during_read = settings['stop evaluation on error']
             break
+
+        # ## ROI CROPPING LOGIC ADDED 10/15/25 MNL
+        #     # Slice the frame array using the ROI coordinates
+        # if ROI_w < frame_width or ROI_h < frame_height:
+        #     frame = frame[ROI_y:ROI_y + ROI_h, ROI_x:ROI_x + ROI_w]
+        #     # After cropping, the size of 'frame' will now be (roi_h, roi_w)
 
         gray = cv2.cvtColor(frame, settings['color filter'])  # Convert to gray scale
 
@@ -313,7 +336,19 @@ def track_bacteria(video_path, settings=None, result_folder=None):
         for index, (objectID, centroid) in enumerate(objects.items()):  # object.items() loop
             # Follow the KISS principle (fancy smoother option is surely available, but this works):
             # Append results to list (Frame, ID, x, y, (other values)), save list when it gets too long
-            coords.append((curr_frame_count, objectID, centroid, wh_degrees[objectID]))
+            coords.append((curr_frame_count, objectID, centroid, wh_degrees[objectID])) # COMMENTED OUT 10/15/25 MNL
+
+            # ## ROI # ADJUST CENTROID COORDINATES LOGIC # ADDED 10/15/25 MNL
+            # # Currently, the code is tracking objects within the cropped frame, so the resulting X and Y coordinates
+            # # are relative to the top-left corder of the ROI (0,0). We need to adjust the position back to the original
+            # # video coordinates in otder to append the results accurately to coords
+            # # i.e.
+            #     # The centroid is currently (x_relative, y_relative).
+            #     # We must shift it by the ROI offset (ROI_x, ROI_y).
+            # x_absolute = centroid[0] + ROI_x
+            # y_absolute = centroid[1] + ROI_y
+
+            # coords.append((curr_frame_count, objectID, (x_absolute, y_absolute), wh_degrees[objectID])) ## MNL ADDED 10/15/25
 
             # draw both the ID of the object and the center point
             if settings['display video analysis']:  # or settings['save video']:  # and objectID == curr_bac:
@@ -932,7 +967,7 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     df['moving'] = df['travelled_dist'] / df['t_delta']
     # get rid of rounding errors, convert to binary:
     # @todo: set higher limit when gsff is used; let user choose
-    df['moving'] = np.where(df['moving'] > 10 ** -3, 1, 0).astype(np.int8)
+    df['moving'] = np.where(df['moving'] > 10 ** -3, 1, 0).astype(np.int8) # CHANGE ME TO SE MY MOVES
     if int(round(fps, 0)) & 1 == 0:  # if fps is even
         max_kernel = int(round(fps, 0)) + 1
     else:
@@ -1042,7 +1077,7 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     median_speed = pd.Series(
         df.groupby(['TRACK_ID', df.index // fps])['travelled_dist'].sum().groupby(level=0).median(),
         index=time_series.index
-    )
+    ) # median_speed tracks median speed over time windows (population-level)
     motile_total_series = df.groupby('TRACK_ID')['moving'].agg('sum')
     motile_series = motile_total_series / (time_series + 1) * 100  # off-by-one error
     time_series = (time_series + 1) / fps  # off-by-one error
@@ -1054,7 +1089,7 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     speed_series = pd.Series(
         (np.where(motile_total_series != 0,
                   dist_series / time_series,
-                  0)), index=time_series.index)
+                  0)), index=time_series.index) # speed_series tracks the average speed per track_ID (individual cell level)
     # Avoid div. by 0:
     acr_series = pd.Series(
         (np.where(dist_series != 0,
