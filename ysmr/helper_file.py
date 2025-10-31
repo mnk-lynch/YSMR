@@ -22,6 +22,8 @@ import os
 import platform
 import subprocess
 import sys
+
+from moviepy import VideoFileClip # MNL added 4/18/2025
 from datetime import datetime
 from glob import glob
 from logging.handlers import QueueHandler, QueueListener
@@ -134,7 +136,8 @@ def collate_results_csv_to_xlsx(path=None, save_path=None, csv_extension='statis
             file_name = os.path.splitext(file_name)[0]
             # Limit max rows and sheet name length
             df.loc[:2 ** 20 - 1, :].to_excel(writer, sheet_name=file_name[:31])
-        writer.save()
+        #writer.save()
+        writer.close() # modified 3/18/25 MNL
         logger.info('Collated results: {}'.format(os.path.abspath(file_path)))
     else:
         logger.info('Could not find paths.')
@@ -158,7 +161,7 @@ def create_configs(config_filepath=None):
         pass
 
     _config['BASIC RECORDING SETTINGS'] = {
-        'pixel per micrometre': 1.41888781,
+        'pixel per micrometre': 2.095785,
         'frames per second': 30.0,
         'frame height': 922,
         'frame width': 1228,
@@ -167,8 +170,16 @@ def create_configs(config_filepath=None):
         'threshold offset for detection': 5,
     }
 
+    _config['REGION OF INTEREST SETTINGS'] = {
+        'enable_ROI': False,
+        'ROI_x': 0,
+        'ROI_y': 0,
+        'ROI_height': 1080,
+        'ROI_width': 1920,
+    }
+
     _config['BASIC TRACK DATA ANALYSIS SETTINGS'] = {
-        'minimal length in seconds': 20.0,
+        'minimal length in seconds': 5,
         'limit track length to x seconds': 20.0,
         'minimal angle in degrees for turning point': 30.0,
         'extreme area outliers lower end in px*px': 2,
@@ -188,7 +199,7 @@ def create_configs(config_filepath=None):
         'store processed .csv file': True,
         'store generated statistical .csv file': True,
         'store final analysed .csv file': True,
-        'split results by (Turn Points / Distance / Speed / Time / Displacement / perc. motile)': 'perc. motile',
+        'split results by (Turn Points / Distance / Speed / Time / Displacement / perc. motile)': 'Displacement',
         'split violin plots on': '0.0, 20.0, 40.0, 60.0, 80.0, 100.01',
         'save large plots': True,
         'save rose plot': True,
@@ -238,7 +249,7 @@ def create_configs(config_filepath=None):
     _config['ADVANCED VIDEO SETTINGS'] = {
         'include luminosity in tracking calculation': False,
         'color filter': 'COLOR_BGR2GRAY',
-        'minimal frame count': 600,
+        'minimal frame count': 200,
         'stop evaluation on error': True,
         'list save length interval': 10000,
         'save video file extension': '.mp4',
@@ -246,15 +257,21 @@ def create_configs(config_filepath=None):
         'adaptive double threshold': 2.0,
     }
 
+    _config['VIDEO TRIMMING'] = {
+        'enable trimming': True,
+        'trim_start_seconds': 50,
+        'trim_end_seconds': 300,
+    }
+
     _config['ADVANCED TRACK DATA ANALYSIS SETTINGS'] = {
         'maximal consecutive holes': 5,
         'maximal empty frames in %': 5.0,
         'percent quantiles excluded area': 10.0,
-        'try to omit motility outliers': True,
+        'try to omit motility outliers': False,
         'stop excluding motility outliers if total count above percent': 5.0,
         'exclude measurement when above x times average area': 1.5,
-        'rod average width/height ratio min.': 0.125,
-        'rod average width/height ratio max.': 0.67,
+        'rod average width/height ratio min.': 0,
+        'rod average width/height ratio max.': 1,
         'coccoid average width/height ratio min.': 0.8,
         'coccoid average width/height ratio max.': 1.0,
         'percent of screen edges to exclude': 5.0,
@@ -265,7 +282,7 @@ def create_configs(config_filepath=None):
     }
 
     _config['GAUSSIAN-SUM FIR FILTER SETTINGS'] = {
-        'disable gsff': False,
+        'disable gsff': True,
         'number of LSFFs': 3,
         'minimum horizon size': 0,
         'maximum horizon size': 30,
@@ -604,6 +621,7 @@ def get_configs(tracking_ini_filepath=None):
         try:
             # try to get all configs
             basic_recording = _config['BASIC RECORDING SETTINGS']
+            ROI = _config['REGION OF INTEREST SETTINGS']
             basic_track = _config['BASIC TRACK DATA ANALYSIS SETTINGS']
             display = _config['DISPLAY SETTINGS']
             results = _config['RESULTS SETTINGS']
@@ -675,6 +693,13 @@ def get_configs(tracking_ini_filepath=None):
                     'white bacteria on dark background'),
                 'rod shaped bacteria': basic_recording.getboolean('rod shaped bacteria'),
                 'threshold offset for detection': basic_recording.getint('threshold offset for detection'),
+
+                # _config['REGION OF INTEREST SETTINGS']
+                'enable_ROI': ROI.getboolean('enable_ROI'),
+                'ROI_x': ROI.getint('ROI_x'),
+                'ROI_y': ROI.getint('ROI_y'),
+                'ROI_height': ROI.getint('ROI_height'),
+                'ROI_width': ROI.getint('ROI_width'),
 
                 # _config['BASIC TRACK DATA ANALYSIS SETTINGS']
                 'minimal length in seconds': basic_track.getfloat('minimal length in seconds'),
