@@ -317,17 +317,19 @@ def violin_plot(df, save_path, category, cut_off_category, cut_off_list, plot_ti
                    orient='v',
                    cut=0,
                    ax=axis,
-                   scale='count',  # 'width' 'count' 'area'
+                   # scale='count',  # 'width' 'count' 'area'
+                   density_norm='count',  # Seaborn v0.15.0
                    width=0.95,
                    linewidth=1,
-                   bw=.2,
+                   # bw=.2,
+                   bw_method=0.2,  # Seaborn v0.15.0
                    # inner='stick',
                    )
     sns.swarmplot(y=df[category],
                   x=df[cut_off_category],
                   orient='v',
                   color="grey",
-                  size=3,
+                  size=1,
                   alpha=0.5,
     )
     axis.set(ylim=(y_min, y_max))
