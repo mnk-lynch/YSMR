@@ -24,7 +24,7 @@ import cv2
 import numpy as np
 import pandas as pd
 from scipy.ndimage import binary_propagation
-from scipy.signal import medfilt
+from scipy.signal import medfilt, argrelextrema
 from scipy.spatial import distance as dist
 
 from ysmr.helper_file import (argrelextrema_groupby, create_results_folder, different_tracks, get_configs, get_data,
@@ -35,7 +35,7 @@ from ysmr.tracker import CentroidTracker
 __all__ = ['track_bacteria', 'select_tracks', 'evaluate_tracks', 'annotate_video']
 
 
-def track_bacteria(video_path, settings=None, result_folder=None):
+def track_bacteria(video_path, settings=None, result_folder=None, **kwargs):
     """
     Detect and track bright spots in a video file, save output to a .csv file
 
@@ -56,7 +56,8 @@ def track_bacteria(video_path, settings=None, result_folder=None):
         logfile_name=settings['log file path'],
         short_stream_output=settings['shorten displayed logging output'],
         short_file_output=settings['shorten logfile logging output'],
-        log_to_file=settings['log to file'])
+        log_to_file=settings['log to file'],
+    )
     # Check for errors
     if not os.path.isfile(video_path):
         logger.critical('File {} does not exist'.format(video_path))
@@ -114,11 +115,13 @@ def track_bacteria(video_path, settings=None, result_folder=None):
     logger.info('Starting with file {}'.format(video_path))
 
     # Set initial values; initialise result list
-    old_list, list_name = save_list(path=video_path,
-                                    result_folder=result_folder,
-                                    first_call=True,
-                                    rename_old_list=settings['rename previous result .csv'],
-                                    illumination=settings['include luminosity in tracking calculation'])
+    old_list, list_name = save_list(
+        path=video_path,
+        result_folder=result_folder,
+        first_call=True,
+        rename_old_list=settings['rename previous result .csv'],
+        illumination=settings['include luminosity in tracking calculation'],
+    )
     # Save old_list_name for later if it exists; False otherwise
     ct = CentroidTracker(  # Initialise tracker instance
         max_disappeared=fps_of_file,
@@ -157,6 +160,7 @@ def track_bacteria(video_path, settings=None, result_folder=None):
     # Background removal:
     # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
+    # @todo: what isn't working here?
     # if settings['save video']:
     #     output_video_name = '{}/{}_output.avi'.format(result_folder, filename)
     #     logger.info('Output video file: {}'.format(output_video_name))
@@ -165,7 +169,7 @@ def track_bacteria(video_path, settings=None, result_folder=None):
     #                           fps_of_file,  # FPS
     #                           (frame_width, frame_height)  # Dimensions
     #                           )
-    # # min_frame_count += skip_frames
+    # min_frame_count += skip_frames
 
     while True:  # Loop over video
         # if cv2.waitKey(1) & 0xFF == ord('n'):  # frame-by-frame
@@ -181,10 +185,9 @@ def track_bacteria(video_path, settings=None, result_folder=None):
         # gray = cv2.UMat(gray)  # Put after gray conversion
 
         # Stop conditions
-        if not ret and (frame_count == curr_frame_count + 1 or  # some file formats skip one frame
-                        frame_count == curr_frame_count) and frame_count >= settings['minimal frame count']:
-        #if not ret and (frame_count == curr_frame_count + 1 or  # some file formats skip one frame
-                        #frame_count == curr_frame_count) and frame_count >= settings['minimal frame count'] or curr_frame_count >= 180 * fps_of_file: # added 3/28/25 to test functionality of cutting off a video at 3 min
+        # if not ret and (frame_count == curr_frame_count + 1 or  # some file formats skip one frame
+        #                 frame_count == curr_frame_count) and frame_count >= settings['minimal frame count'] and curr_frame_count < fps_of_file * 180:
+        if not ret or curr_frame_count >= 180 * fps_of_file: # added 3/28/25 to test functionality of cutting off a video at 3 min
             # ^ added 3/18/25, did not seem to work. Will try again.
             # If a frame could not be retrieved and the minimum frame nr. has been reached
             logger.debug('Frames from file {} read.'.format(filename_ext))
@@ -203,6 +206,13 @@ def track_bacteria(video_path, settings=None, result_folder=None):
         gray = cv2.cvtColor(frame, settings['color filter'])  # Convert to gray scale
 
         blurred = cv2.GaussianBlur(gray, (3, 3), 0)  # blur
+
+        # @todo: add settings.ini variable for option / modulo
+        # if True and curr_frame_count % int(round(fps_of_file, 0)) == 0:
+        #     linear_frame = np.sum(blurred, 0)
+        #     _maxima = argrelextrema(linear_frame, np.greater)
+        #     print(_maxima[0].tolist())
+        #     kwargs.update({'{}_frame_minima'.format(curr_frame_count): _maxima[0].tolist()})
 
         # All pixels above curr_threshold are set to 255 (white); others are set to 0
         if settings['adaptive double threshold'] >= 0:
@@ -387,7 +397,7 @@ def track_bacteria(video_path, settings=None, result_folder=None):
 
         if settings['display video analysis']:  # Display current FPS on frame
             cv2.putText(frame,  # image
-                        'FPS: {}'.format(int(fps)),  # text
+                        'FPS: {}\n{} s'.format(int(fps), int(frame_count // fps_of_file)),  # text
                         (100, 50),  # xy coordinates
                         cv2.FONT_HERSHEY_SIMPLEX,  # font
                         0.75,  # text size
@@ -401,8 +411,11 @@ def track_bacteria(video_path, settings=None, result_folder=None):
                 break
 
     if coords:  # check if list is not empty ([] == False, otherwise True)
-        save_list(coords=coords, path=list_name,
-                  illumination=settings['include luminosity in tracking calculation'])  # Save the remainder
+        save_list(  # Save the remainder
+            coords=coords,
+            path=list_name,
+            illumination=settings['include luminosity in tracking calculation'],
+        )
 
     # if settings['save video']:
     #     out.release()
@@ -437,7 +450,7 @@ def track_bacteria(video_path, settings=None, result_folder=None):
     if error_during_read:
         logger.critical('Error during read, stopping before evaluation. File: {}'.format(video_path))
         return None
-    return df_for_eval, fps_of_file, frame_height, frame_width, list_name
+    return df_for_eval, fps_of_file, frame_height, frame_width, list_name, kwargs
 
 
 def find_good_tracks(df_passed, start, stop, lower_boundary, upper_boundary, frame_height,
@@ -967,7 +980,12 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     df['moving'] = df['travelled_dist'] / df['t_delta']
     # get rid of rounding errors, convert to binary:
     # @todo: set higher limit when gsff is used; let user choose
-    df['moving'] = np.where(df['moving'] > 10 ** -3, 1, 0).astype(np.int8) # CHANGE ME TO SE MY MOVES
+    # df['moving'] = np.where(df['moving'] > 10 ** -3, 1, 0).astype(np.int8) # CHANGE ME TO SE MY MOVES
+    df['moving'] = np.where(
+        df['moving'] > 10 / fps, # 1 * fps
+        1,
+        0
+    ).astype(np.int8) # CHANGE ME TO SE MY MOVES
     if int(round(fps, 0)) & 1 == 0:  # if fps is even
         max_kernel = int(round(fps, 0)) + 1
     else:
@@ -1047,6 +1065,7 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
 
     # Phenotypes: 2: motile; 1: twitching; 0: immotile
     df['motility_phenotype'] = np.zeros(df.shape[0], dtype=np.int8)
+    # @todo: tracking.ini for cutoffs
     df['motility_phenotype'] = np.where(
         ((df['pdist_series_max'] > 1.5) & (df['tp_dist_by_size_max'] > 5)),  # motile
         2,
