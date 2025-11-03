@@ -20,7 +20,7 @@ import multiprocessing as mp
 import os
 from datetime import datetime
 from time import sleep
-from moviepy import VideoFileClip # MNL added 4/18/2025
+# from moviepy import VideoFileClip # MNL added 4/18/2025
 
 from ysmr.helper_file import (check_logfile, collate_results_csv_to_xlsx, create_results_folder, elapsed_time,
                               get_any_paths, get_configs, get_loggers, log_infos, logging_configurer,
