@@ -18,4 +18,6 @@ not, see <http://www.gnu.org/licenses/>.
 from ysmr.main import ysmr
 
 if __name__ == '__main__':
-    ysmr()
+    ysmr(
+        settings= r'C:\Users\kisch050\Desktop\YSMR_maria_fork_folder\tracking.ini'
+    )
