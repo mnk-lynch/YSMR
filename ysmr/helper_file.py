@@ -23,7 +23,6 @@ import platform
 import subprocess
 import sys
 
-from moviepy import VideoFileClip # MNL added 4/18/2025
 from datetime import datetime
 from glob import glob
 from logging.handlers import QueueHandler, QueueListener

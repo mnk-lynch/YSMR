@@ -20,7 +20,6 @@ import multiprocessing as mp
 import os
 from datetime import datetime
 from time import sleep
-from moviepy import VideoFileClip # MNL added 4/18/2025
 
 from ysmr.helper_file import (check_logfile, collate_results_csv_to_xlsx, create_results_folder, elapsed_time,
                               get_any_paths, get_configs, get_loggers, log_infos, logging_configurer,
@@ -94,8 +93,9 @@ def analyse(path, settings=None, result_folder=None, return_df=False, **kwargs):
                 logger.warning('Error during video analysis of file {}.'.format(path))
                 return_value = None
                 break
-            (df, fps, f_height, f_width, csv_file) = track_result
+            (df, fps, f_height, f_width, csv_file, _kwargs) = track_result
             return_value = df
+            kwargs.update(_kwargs)
         # save fps and frame dimensions in metadata json
         meta_data = metadata_file(
             # meta.json file will be searched for in provided folder and parent folder
@@ -173,7 +173,7 @@ def analyse(path, settings=None, result_folder=None, return_df=False, **kwargs):
     return return_value
 
 
-def ysmr(paths=None, settings=None, result_folder=None, multiprocess=False):
+def ysmr(paths=None, settings=None, result_folder=None, multiprocess=True):
     """
     Starts asynchronous multiprocessing of provided video file(s) with analyse().
     Due to the use of multiprocessing, ysmr() should be called in a
