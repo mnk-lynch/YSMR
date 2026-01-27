@@ -627,8 +627,8 @@ def select_tracks(path_to_file=None, df=None, results_directory=None, fps=None,
             logger.critical('fps value is negative or zero; cannot continue.')
             return None
     # change from sec to frames
-    minimal_length_frames = int(round(fps, 0) * settings['minimal length in seconds'])
-    limit_track_to_frames = int(round(fps, 0) * settings['limit track length to x seconds'])
+    minimal_length_frames = int(round(fps * settings['minimal length in seconds'], 0))
+    limit_track_to_frames = int(round(fps * settings['limit track length to x seconds'], 0))
     if settings['extreme area outliers lower end in px*px'] >= settings['extreme area outliers upper end in px*px']:
         logger.critical(
             'Minimal area exclusion in px^2 larger or equal to maximum; will not be able to find tracks. '
