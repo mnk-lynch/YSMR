@@ -1666,6 +1666,19 @@ def shutdown(seconds=60):
             pass
 
 
+def val_to_float_or_false(value):
+    """Convenience function to convert to float or on ValueError return None
+
+    :param value: value
+    :return: float or None
+    """
+    try:
+        value = float(value)
+    except ValueError:
+        value = False
+    return value
+
+
 if __name__ == '__main__':
     get_loggers(log_to_file=False, short_stream_output=True)
     create_configs()
