@@ -450,6 +450,13 @@ def creation_date(path_to_file):
         return seconds
     else:
         return None
+    
+
+def datetime_now_string() -> str:
+    """ Return a datetime string in the format YYYYMMDDHHMMSS
+    """
+    return datetime.now().strftime('%y%m%d%H%M%S')
+
 
 
 def different_tracks(data, column='TRACK_ID'):
