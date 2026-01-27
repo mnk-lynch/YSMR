@@ -713,7 +713,7 @@ def select_tracks(path_to_file=None, df=None, results_directory=None, fps=None,
     #     df['area'],  # track is fine
     #     np.nan  # delete otherwise
     # )
-    # -> moved to select_tracks()
+    # -> moved to find_good_tracks()
 
     # remove all rows with a NaN in them - this gets rid of empty/short tracks and empty/suspect measurements
     # As we'll later need only the remaining areas, we'll drop the NaNs
