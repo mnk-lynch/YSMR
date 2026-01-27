@@ -1424,6 +1424,10 @@ def save_df_to_csv(df, save_path, rename_old_file=True):
         pass
 
 
+def safe_save_file_name(file_name: str) -> str:
+    return ''.join([l if l.isalnum() else '_' for l in file_name])
+
+
 def save_list(path, result_folder=None, coords=None, first_call=False, rename_old_list=True, illumination=False):
     """Create csv file for results from track_bacteria(), append results
 
