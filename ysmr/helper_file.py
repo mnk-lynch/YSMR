@@ -496,6 +496,15 @@ def elapsed_time(time_one):
     return time_delta
 
 
+def extract_frame_maxima(metadata: dict, identifier: str = '_frame_maxima') -> dict:
+    """extract key: item pairs from a dictionary based on an identifier in the key,
+    return keys as integers removed from the identifier.
+    """
+    return {
+        int(key[:-len(identifier)]): val for key, val in metadata.items() if identifier.lower() in key.lower()
+    }
+
+
 def find_paths(base_path, extension, minimal_age=0, maximal_age=np.inf, recursive=True):
     """Search for files with provided extension in provided path
 
