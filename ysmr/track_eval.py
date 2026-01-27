@@ -1272,27 +1272,7 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     # sort df_stats_seaborne by generated dict key:value pairs (in order of cut_off_list)
     df_stats_seaborne = df_stats_seaborne.iloc[df_stats_seaborne[cut_off_category].map(categories).sort_values().index]
 
-    if settings['save large plots'] or settings['save rose plot']:
-        # distance colour for plots
-        distance_min = df_stats[name_of_columns[1]].min()  # 'Distance (micrometre)',  # 1
-        distance_max = df_stats[name_of_columns[1]].max()
-        df['distance_colour'] = df.groupby('TRACK_ID')['travelled_dist'].transform('sum') - distance_min
-        df['distance_colour'] = df['distance_colour'] / df['distance_colour'].max()
-
-        if settings['save large plots']:
-            large_xy_plot(df=df,
-                          plot_title_name=plot_title_name,
-                          save_path=save_path.format('Bac_Run_Overview', '.png'),
-                          dist_min=distance_min,
-                          dist_max=distance_max,
-                          px_to_micrometre=px_to_micrometre,
-                          )
-        if settings['save rose plot']:
-            rose_graph(df=df,
-                       plot_title_name=plot_title_name,
-                       save_path=save_path.format('rose_graph', '.png'),
-                       dist_min=distance_min,
-                       dist_max=distance_max)
+    # Collect plots to be saved
     violin_plots = []
     if settings['save turning point violin plot']:
         violin_plots.append((
