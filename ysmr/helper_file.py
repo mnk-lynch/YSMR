@@ -749,6 +749,7 @@ def get_configs(tracking_ini_filepath=None):
                 'save length violin plot': results.getboolean('save length violin plot'),
                 'save turning point violin plot': results.getboolean('save turning point violin plot'),
                 'save speed violin plot': results.getboolean('save speed violin plot'),
+                'save median speed violin plot': results.getboolean('save median speed violin plot'),
                 'save angle distribution plot / bins': results.getint('save angle distribution plot / bins'),
                 'save displacement violin plot': results.getboolean('save displacement violin plot'),
                 'save percent motile plot': results.getboolean('save percent motile plot'),
