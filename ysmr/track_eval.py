@@ -97,20 +97,6 @@ def track_bacteria(video_path, settings=None, result_folder=None, **kwargs):
     if not result_folder:
         result_folder = create_results_folder(video_path)
 
-    ## ROI LOGIC ADDED 10/15/25 MNL
-    # ROI_x = settings.get('ROI_x', 0)
-    # ROI_y = settings.get('ROI_y', 0)
-    # ROI_w = settings.get('ROI_width', frame_width)  # Use full width/height as default
-    # ROI_h = settings.get('ROI_height', frame_height)  # Use full width/height as default
-    #
-    # # Ensure ROI is valid before starting loop
-    # if ROI_x + ROI_w > frame_width or ROI_y + ROI_h > frame_height:
-    #     logger.critical('ROI settings are outside the frame boundaries. Analysis stopped.')
-    #     return None
-    #
-    # if settings['verbose']:
-    #     logger.info(f"Using ROI: x={ROI_x}, y={ROI_y}, w={ROI_w}, h={ROI_h}")
-
     pathname, filename_ext = os.path.split(video_path)
     filename = os.path.splitext(filename_ext)[0]
     logger.info('Starting with file {}'.format(video_path))
