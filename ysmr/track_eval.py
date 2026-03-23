@@ -1034,7 +1034,7 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     df['angle_diff'] = np.arctan2(x_diff_track_for_angle, y_diff_track_for_angle)  # rad
 
     min_angle = settings['minimal angle in degrees for turning point']
-    df['angle_diff'] = np.degrees(df['angle_diff'])  # deg
+    df['angle_diff_deg'] = np.degrees(df['angle_diff'])  # deg
     # Convert to angle difference between 0 and 180
     df['angle_diff'] = abs(df.groupby('TRACK_ID')['angle_diff'].diff().fillna(0))
     df['angle_diff'] = np.where(360 - df['angle_diff'] <= df['angle_diff'],
