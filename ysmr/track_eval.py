@@ -822,8 +822,8 @@ def select_tracks(path_to_file=None, df=None, results_directory=None, fps=None,
         if not good_track_result:
             continue
         # get longest track from good_track_result:
-        good_selection = 0  # @todo: allow switch between longest/first fragment
-        if len(good_track_result) > 1:
+
+        if len(good_track_result) > 1 and not settings['allow segmented tracks']:
             good_comparator = 0
             for idx_good, (good_start, good_stop) in enumerate(good_track_result):
                 curr_length = good_stop - good_start + 1
