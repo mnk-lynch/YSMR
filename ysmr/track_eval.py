@@ -1036,10 +1036,10 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     min_angle = settings['minimal angle in degrees for turning point']
     df['angle_diff_deg'] = np.degrees(df['angle_diff'])  # deg
     # Convert to angle difference between 0 and 180
-    df['angle_diff'] = abs(df.groupby('TRACK_ID')['angle_diff'].diff().fillna(0))
-    df['angle_diff'] = np.where(360 - df['angle_diff'] <= df['angle_diff'],
-                                360 - df['angle_diff'],
-                                df['angle_diff']
+    df['angle_diff_deg'] = abs(df.groupby('TRACK_ID')['angle_diff_deg'].diff().fillna(0))
+    df['angle_diff_deg'] = np.where(360 - df['angle_diff_deg'] <= df['angle_diff_deg'],
+                                360 - df['angle_diff_deg'],
+                                df['angle_diff_deg']
                                 ).astype(np.int32)
     df['turn_points'] = np.where(
         (df['angle_diff'] > min_angle) & (df['moving'] == 1),
