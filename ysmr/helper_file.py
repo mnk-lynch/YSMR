@@ -1356,6 +1356,8 @@ def metadata_file(path=None, verbose=False, additional_search_paths=None, **kwar
             # clear None values
             meta_data.update({key: val for key, val in meta_data_unfiltered.items() if val is not None})
             save_path = curr_path
+            if verbose:
+                logger.debug('Found file at path: {}'.format(curr_path))
             break
         except (FileNotFoundError, PermissionError, ValueError):
             # JSONDecodeerror is a ValueError
