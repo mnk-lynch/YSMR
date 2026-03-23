@@ -987,6 +987,9 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
 
     df['WIDTH'] = df['WIDTH'] / px_to_micrometre
     df['HEIGHT'] = df['HEIGHT'] / px_to_micrometre
+    if settings['split on white lines']:  # for splitting into areas
+        df['mean_x'] = df.groupby('TRACK_ID')['POSITION_X'].transform('mean')
+
     df['area'] = df['WIDTH'] * df['HEIGHT']  # calculate area of bacteria in micrometre**2
     df['bac_length'] = np.where(df['WIDTH'] >= df['HEIGHT'], df['WIDTH'], df['HEIGHT']).astype(np.float16)
 
