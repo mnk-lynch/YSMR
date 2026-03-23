@@ -41,6 +41,11 @@ def angle_distribution_plot(df, bins_number, plot_title_name, save_path, dpi=300
     """
     logger = logging.getLogger('ysmr').getChild(__name__)
     angle_radians = df['angle_diff']
+    if df['angle_diff'].max() > 2 * np.pi:
+        logger.warning(
+            f"Maximum angle in radians is {df['angle_diff'].max():.2f} - "
+            f"check if angles where incorrectly provided in degrees."
+        )
     # Create array with average motility percentage per track
     average_minimum_groups = df.groupby('TRACK_ID')['moving']
     min_average = np.repeat(average_minimum_groups.mean().to_numpy(), average_minimum_groups.count().to_numpy())
