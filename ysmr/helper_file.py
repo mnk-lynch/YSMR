@@ -175,6 +175,9 @@ def create_configs(config_filepath=None):
         'ROI_y': 0,
         'ROI_height': 1080,
         'ROI_width': 1920,
+        'split on white lines': True,
+        'frequency of checking white line position in frames': 60,
+        'split analysis at time points (s)': '0.0, 60.0, 240.0',
     }
 
     _config['BASIC TRACK DATA ANALYSIS SETTINGS'] = {
