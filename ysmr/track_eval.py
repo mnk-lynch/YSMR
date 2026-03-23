@@ -165,8 +165,6 @@ def track_bacteria(video_path, settings=None, result_folder=None, **kwargs):
         # ret: True/False, depends on whether another frame could be retrieved
         # frame: the actual current frame
 
-        # if curr_frame_count < skip_frames:
-        #     continue  # skip frame/jump back to start
         # uMatframe = cv2.UMat(frame)
         # UMat: should utilise graphics card; tends to slow down the whole thing a lot
         # gray = cv2.UMat(gray)  # Put after gray conversion
