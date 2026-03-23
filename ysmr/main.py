@@ -72,6 +72,7 @@ def analyse(path, settings=None, result_folder=None, return_df=False, **kwargs):
         settings['save length violin plot'],
         settings['save turning point violin plot'],
         settings['save speed violin plot'],
+        settings['save median speed violin plot'],
         settings['save angle distribution plot / bins'],
         settings['collate results csv to xlsx'],
         settings['save video'],
