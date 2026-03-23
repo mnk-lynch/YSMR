@@ -186,11 +186,41 @@ def track_bacteria(video_path, settings=None, result_folder=None, **kwargs):
         blurred = cv2.GaussianBlur(gray, (3, 3), 0)  # blur
 
         # @todo: add settings.ini variable for option / modulo
-        # if True and curr_frame_count % int(round(fps_of_file, 0)) == 0:
-        #     linear_frame = np.sum(blurred, 0)
-        #     _maxima = argrelextrema(linear_frame, np.greater)
-        #     print(_maxima[0].tolist())
-        #     kwargs.update({'{}_frame_minima'.format(curr_frame_count): _maxima[0].tolist()})
+        if (settings['split on white lines'] and
+                curr_frame_count % settings['frequency of checking white line position in frames'] == 0):
+            # Sum brightness of frame so we end up with a x-axis brightness signal
+            linear_frame = np.sum(blurred, 0)
+
+            # # First approach
+            # # Remove low noise / background
+            # linear_frame = medfilt(linear_frame, 3)
+            # # Get maxima indices
+            # _maxima = argrelextrema(linear_frame, np.greater)
+
+            # As lines are full white while rest of frame isn't, cut off signal at 95 percentile, convert to binary
+            # This additionally has the upside that we will always get edges between bright and dark
+
+            if settings['white bacteria on dark background']:
+                linear_frame = np.where(  # create vector with condition:
+                    linear_frame > np.percentile(linear_frame, 95),
+                    1,  # if True
+                    0  # Otherwise
+                )
+            else:
+                linear_frame = np.where(  # create vector with condition:
+                    linear_frame < np.percentile(linear_frame, 5),
+                    1,  # if True
+                    0  # Otherwise
+                )
+            # Get indices where we go from 0 to 1 or inverse
+            # stackoverflow.com/questions/19125661/find-index-where-elements-change-value-numpy/39989397#39989397
+            _maxima = np.where(np.roll(linear_frame,1) != linear_frame)[0]
+            if settings['debugging']:
+                logging.debug(
+                    f"Found maxima in frame {curr_frame_count}: {', '.join(str(i) for i in _maxima.tolist())}"
+                )
+            # Store in kwargs
+            kwargs.update({f'{curr_frame_count}_frame_maxima': _maxima.tolist()})
 
         # All pixels above curr_threshold are set to 255 (white); others are set to 0
         if settings['adaptive double threshold'] >= 0:
