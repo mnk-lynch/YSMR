@@ -1475,7 +1475,7 @@ def save_list(path, result_folder=None, coords=None, first_call=False, rename_ol
             pathname = result_folder
         filename = os.path.splitext(filename_ext)[0]
         file_csv = os.path.join(pathname, '{}_list.csv'.format(filename))
-        now = datetime.now().strftime('%y%m%d%H%M%S')
+        now = datetime_now_string()
         old_list = False
         permission_error = False
         if os.path.isfile(file_csv):
