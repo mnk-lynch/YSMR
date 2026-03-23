@@ -1002,6 +1002,19 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     # get rid of rounding errors, convert to binary:
     # @todo: set higher limit when gsff is used; let user choose
     # df['moving'] = np.where(df['moving'] > 10 ** -3, 1, 0).astype(np.int8) # CHANGE ME TO SE MY MOVES
+    # df['median_speed'] = df.groupby('TRACK_ID')['moving'].transform('median') * fps
+    # df['median_speed'] = np.where(
+    #     df['median_speed'] >= 10,
+    #     df['median_speed'],
+    #     np.nan
+    # )
+    # df.dropna(inplace=True, subset=['median_speed'])
+    #
+    # # reset index to calculate track_change again
+    # if settings['verbose']:
+    #     logger.debug('Re-indexing')
+    # df.reset_index(drop=True, inplace=True)
+    # diff_tracks_start, track_change = different_tracks(df)
     df['moving'] = np.where(
         df['moving'] > 10 / fps, # 1 * fps
         1,
