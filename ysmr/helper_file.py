@@ -715,6 +715,11 @@ def get_configs(tracking_ini_filepath=None):
                 'ROI_y': ROI.getint('ROI_y'),
                 'ROI_height': ROI.getint('ROI_height'),
                 'ROI_width': ROI.getint('ROI_width'),
+                'split on white lines': ROI.getboolean('split on white lines'),
+                'frequency of checking white line position in frames': ROI.getfloat(
+                    'frequency of checking white line position in frames'
+                ),
+                'split analysis at time points (s)': split_on_time,
 
                 # _config['BASIC TRACK DATA ANALYSIS SETTINGS']
                 'minimal length in seconds': basic_track.getfloat('minimal length in seconds'),
