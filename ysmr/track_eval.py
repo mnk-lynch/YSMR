@@ -1033,14 +1033,6 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     y_diff_track_for_angle = df.groupby('TRACK_ID')['POSITION_Y'].diff(angle_diff)  # .fillna(method='bfill')
     df['angle_diff'] = np.arctan2(x_diff_track_for_angle, y_diff_track_for_angle)  # rad
 
-    # Angle distribution histogram
-    if settings['save angle distribution plot / bins']:  # 0 == False
-        # takes angle_diff as rad
-        angle_distribution_plot(df=df,
-                                bins_number=settings['save angle distribution plot / bins'],
-                                plot_title_name=plot_title_name,
-                                save_path=save_path.format('angle_histogram', '.png')
-                                )
     min_angle = settings['minimal angle in degrees for turning point']
     df['angle_diff'] = np.degrees(df['angle_diff'])  # deg
     # Convert to angle difference between 0 and 180
