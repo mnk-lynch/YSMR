@@ -228,14 +228,6 @@ def rose_graph(df, plot_title_name, save_path, dist_min=0, dist_max=None, dpi=30
             dist_max = df['travelled_dist'].max()
         except KeyError:
             dist_max = df['distance_colour'].max()
-    # set up figure
-    f = plt.figure()
-    f.set_size_inches(11.6929133858, 8.2677165354)
-
-    outer_space = 0.05
-    # inner_space = 0.03
-    head_space = 0.05
-    width_space = 0.05
 
     f, gs = base_figure(gs=True)
 
