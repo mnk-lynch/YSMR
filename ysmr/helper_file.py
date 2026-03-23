@@ -207,6 +207,7 @@ def create_configs(config_filepath=None):
         'save length violin plot': True,
         'save turning point violin plot': True,
         'save speed violin plot': True,
+        'save median speed violin plot': True,
         'save angle distribution plot / bins': 36,
         'save displacement violin plot': True,
         'save percent motile plot': True,
