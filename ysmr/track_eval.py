@@ -1026,7 +1026,8 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     # median filter the values to spot general null points in movement
     for kernel_size in [3, max_kernel]:
         df['moving'] = df.groupby('TRACK_ID')['moving'].transform(medfilt, kernel_size=kernel_size)
-
+    if settings['verbose']:
+        logger.debug('Calculating angles')
     angle_diff = settings['compare angle between n frames']
     x_diff_track_for_angle = df.groupby('TRACK_ID')['POSITION_X'].diff(angle_diff)  # .fillna(method='bfill')
     y_diff_track_for_angle = df.groupby('TRACK_ID')['POSITION_Y'].diff(angle_diff)  # .fillna(method='bfill')
