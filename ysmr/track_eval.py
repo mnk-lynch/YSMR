@@ -1364,25 +1364,167 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
             settings['acr violin plot min'],
             settings['acr violin plot max'],
         ))
+    if settings['save median speed violin plot']:
+        violin_plots.append((
+            name_of_columns[11], 'Median_speed',
+            settings['speed violin plot min'],
+            settings['speed violin plot max'],
+        ))
+    distance_min = distance_max = None
 
-    violin_plots.append((
-        name_of_columns[11], 'Median_speed',
-        None,
-        None,
-    ))
+    df_passed_columns = [
+        'TRACK_ID', 'POSITION_T', 'POSITION_X', 'POSITION_Y', 'WIDTH', 'HEIGHT', 'DEGREES_ANGLE',
+        'angle_diff', 'moving', 'turn_points', 'tp_of_tracks', 'travelled_dist', 'motility_phenotype'
+    ]
+    # df = df.loc[:, df_passed_columns]  # drop unnecessary columns
 
-    for category, plot_name, y_min, y_max in violin_plots:
-        violin_plot(
-            df=df_stats_seaborne,
-            save_path=save_path.format(plot_name, '.png'),
-            cut_off_category=cut_off_category,
-            category=category,
-            cut_off_list=cut_off_list,
-            verbose=settings['verbose'],
-            y_min=y_min,
-            y_max=y_max,
-            plot_title_name=plot_title_name,
+    if settings['verbose']:
+        logger.debug('Saving analysed csv file')
+    if settings['store final analysed .csv file']:
+        save_df_to_csv(
+            df=df.loc[:, df_passed_columns],
+            save_path=save_path.format('analysed', '.csv')
         )
+
+    if settings['save large plots'] or settings['save rose plot']:
+        # distance colour for plots
+        distance_min = df_stats[name_of_columns[1]].min()  # 'Distance (micrometre)',  # 1
+        distance_max = df_stats[name_of_columns[1]].max()
+        df['distance_colour'] = df.groupby('TRACK_ID')['travelled_dist'].transform('sum') - distance_min
+        df['distance_colour'] = df['distance_colour'] / df['distance_colour'].max()
+
+    mod_df_list = [(df, '')]
+    median_length = None
+    values_display = None
+    if settings['split on white lines']:
+        frame_maxima = extract_frame_maxima(kwargs)
+        if not frame_maxima:
+            # Check if we can find a saved metadata .json file
+            frame_maxima = extract_frame_maxima(
+                metadata_file(
+                    path=path_to_file,
+                    additional_search_paths=os.path.join(results_directory, f"{file_name}_meta.json"),
+                    verbose=settings['verbose'],
+                )
+            )
+        if not frame_maxima:
+            logger.warning("Could not locate white line definitions, aborting split analysis")
+            settings['split on white lines'] = False
+        if frame_maxima:
+            # Check for median list length, report findings
+            median_length = np.percentile(a=[len(i) for i in frame_maxima.values()], q=[1, 5, 50, 95, 99])
+            median_length = [int(i) for i in median_length]
+            outlier_num = len([len(i) for i in frame_maxima.values() if len(i) != median_length[2]])
+            logger.info(f"White line position outliers in terms of length: {outlier_num / len(frame_maxima):.3%}")
+            logger.info(
+                f"White line length 1, 5, 50, 95, 99 percentiles: {', '.join([str(i) for i in median_length])}"
+            )
+            # Remove length outliers
+            frame_maxima = {k: i for k, i in frame_maxima.items() if len(i) == median_length[2]}
+            # Go through each set limit, create an empty array:
+            # 0 to 1, ..., n to n + 1
+            # 0 and n + 1 are x = 0 and x = screen width, respectively
+            df[f'cutoff_0'] = -1  # Inclusive minimum
+            df[f'cutoff_{median_length[2] + 1}'] = df['POSITION_X'].max() + 1  # Inclusive maximum
+            for i in range(0, median_length[2]):
+                df[f'cutoff_{i+1}'] = np.nan
+                # then go through each time slot. For each time slot, assign the limit at that
+                #  position.
+                for time_slot, values in frame_maxima.items():
+                    df[f'cutoff_{i+1}'] = np.where(
+                        df['POSITION_T'] == time_slot,
+                        values[i],
+                        df[f'cutoff_{i+1}']
+                    )
+                # After each position has been filled, forward-fill (ffill) all remaining np.nan.
+                df[f'cutoff_{i}'] = df[f'cutoff_{i}'].ffill()
+            values_display = [0]
+            values_display.extend(next(iter(frame_maxima.values())))
+            values_display.append(df['POSITION_X'].max())
+            for i in range(0, median_length[2] + 1):
+                # mod_df_list = [(df, '')]
+
+                mod_df_list.append((
+                    df.loc[
+                        (df['x_median'] >= df[f'cutoff_{i}']) &
+                        (df['x_median'] < df[f'cutoff_{i + 1}']), :
+                    ],
+                    f"X-axis split: {values_display[i]/px_to_micrometre:.2f} to {values_display[i+1]/px_to_micrometre:.2f}"
+                ))
+    if settings['split analysis at time points (s)']:
+        settings['split analysis at time points (s)'].append(int(df['POSITION_T'].max() + 10 / fps))
+        for i in range(len(settings['split analysis at time points (s)']) - 1):
+            # mod_df_list = [(df, '')]
+            mod_df_list.append((
+                df.loc[
+                    (df['t_first'] >= settings['split analysis at time points (s)'][i] * fps) &
+                    (df['t_first'] < settings['split analysis at time points (s)'][i + 1] * fps), :
+                    ],
+                f"Time split: {settings['split analysis at time points (s)'][i]} to {settings['split analysis at time points (s)'][i + 1]}"
+            ))
+    if settings['split analysis at time points (s)'] and settings['split on white lines']:
+        for a in range(len(settings['split analysis at time points (s)']) - 1):
+            for i in range(0, median_length[2] + 1):
+                # mod_df_list = [(df, '')]
+                name = f"Time split: {settings['split analysis at time points (s)'][a]} to {settings['split analysis at time points (s)'][a + 1]}"
+                name += f", X-axis split: {values_display[i]/px_to_micrometre:.2f} to {values_display[i+1]/px_to_micrometre:.2f}"
+                mod_df_list.append((
+                    df.loc[
+                        (df['t_first'] >= settings['split analysis at time points (s)'][a] * fps) &
+                        (df['t_first'] < settings['split analysis at time points (s)'][a + 1] * fps) &
+                        (df['x_median'] >= df[f'cutoff_{i}']) &
+                        (df['x_median'] < df[f'cutoff_{i + 1}']), :
+                    ],
+                    name
+                ))
+
+    # Save plots
+    for cdf, limit_name in mod_df_list:
+        _plot_title_name = f"{plot_title_name}"
+        if limit_name:
+            _plot_title_name += f" {limit_name}"
+        # Angle distribution histogram
+        if settings['save angle distribution plot / bins']:  # 0 == False
+            # takes angle_diff as rad
+            angle_distribution_plot(
+                df=cdf,  # [cdf['median_speed'] > 15]
+                bins_number=settings['save angle distribution plot / bins'],
+                plot_title_name=_plot_title_name,
+                save_path=save_path.format(safe_save_file_name(f"angle_histogram{_plot_title_name}"), '.png')
+            )
+        if settings['save large plots']:
+            large_xy_plot(
+                df=cdf,
+                plot_title_name=_plot_title_name,
+                save_path=save_path.format(safe_save_file_name(f'Bac_Run_Overview{_plot_title_name}'), '.png'),
+                dist_min=distance_min,
+                dist_max=distance_max,
+                px_to_micrometre=px_to_micrometre,
+            )
+        if settings['save rose plot']:
+            rose_graph(
+                df=cdf,
+                plot_title_name=_plot_title_name,
+                save_path=save_path.format(safe_save_file_name(f'rose_graph{_plot_title_name}'), '.png'),
+                dist_min=distance_min,
+                dist_max=distance_max,
+            )
+
+        for category, plot_name, y_min, y_max in violin_plots:
+            _plot_name = f"{plot_name}"
+            if limit_name:
+                _plot_name += f" {limit_name}"
+            violin_plot(
+                df=df_stats_seaborne[df_stats_seaborne['TRACK_ID'].isin(cdf['TRACK_ID'].unique())],
+                save_path=save_path.format(safe_save_file_name(_plot_name), '.png'),
+                cut_off_category=cut_off_category,
+                category=category,
+                cut_off_list=cut_off_list,
+                verbose=settings['verbose'],
+                y_min=y_min,
+                y_max=y_max,
+                plot_title_name=plot_title_name,
+            )
 
     df_passed_columns = [
         'TRACK_ID', 'POSITION_T', 'POSITION_X', 'POSITION_Y', 'WIDTH', 'HEIGHT', 'DEGREES_ANGLE',
