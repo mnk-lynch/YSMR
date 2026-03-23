@@ -967,6 +967,11 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     # Set correct values for track starts
     df.loc[diff_tracks_start, ['x_delta', 'y_delta']] = 0
     df.loc[diff_tracks_start, ['t_delta']] = 1
+
+    # df['x_delta'] = df.groupby('TRACK_ID')['POSITION_X'].diff().fillna(0)
+    # df['y_delta'] = df.groupby('TRACK_ID')['POSITION_Y'].diff().fillna(0)
+    # df['t_delta'] = df.groupby('TRACK_ID')['POSITION_T'].diff().fillna(1)
+
     for letter in ['x', 'y', 't']:  # validate
         item = '{}_delta'.format(letter)
         if df[item].isnull().any():  # check if any value is still NaN
