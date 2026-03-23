@@ -725,6 +725,8 @@ def get_configs(tracking_ini_filepath=None):
                     'extreme area outliers lower end in px*px'),
                 'extreme area outliers upper end in px*px': basic_track.getint(
                     'extreme area outliers upper end in px*px'),
+                'movement rounding error threshold': basic_track.getfloat(
+                    'movement rounding error threshold'),
 
                 # _config['DISPLAY SETTINGS']
                 'user input': display.getboolean('user input'),
