@@ -316,28 +316,30 @@ def violin_plot(df, save_path, category, cut_off_category, cut_off_list, plot_ti
               which='major',
               # color='gray',
               alpha=0.80, )
-    sns.violinplot(y=df[category],
-                   x=df[cut_off_category],
-                   # hue=df_stats[name_of_columns[-1]],
-                   # dodge=False,
-                   orient='v',
-                   cut=0,
-                   ax=axis,
-                   # scale='count',  # 'width' 'count' 'area'
-                   density_norm='count',  # Seaborn v0.15.0
-                   width=0.95,
-                   linewidth=1,
-                   # bw=.2,
-                   bw_method=0.2,  # Seaborn v0.15.0
-                   # inner='stick',
-                   )
-    sns.swarmplot(y=df[category],
-                  x=df[cut_off_category],
-                  orient='v',
-                  color="grey",
-                  size=1,
-                  alpha=0.5,
+    sns.violinplot(
+        y=df[category],
+        x=df[cut_off_category],
+        # hue=df_stats[name_of_columns[-1]],
+        # dodge=False,
+        orient='v',
+        cut=0,
+        ax=axis,
+        # scale='count',  # 'width' 'count' 'area'
+        density_norm='count',  # Seaborn v0.15.0
+        width=0.95,
+        linewidth=1,
+        # bw=.2,
+        bw_method=0.2,  # Seaborn v0.15.0
+        # inner='stick',
     )
+    # @todo: make size dependent check / optional in settings
+    # sns.swarmplot(y=df[category],
+    #               x=df[cut_off_category],
+    #               orient='v',
+    #               color="grey",
+    #               size=1,
+    #               alpha=0.5,
+    # )
     axis.set(ylim=(y_min, y_max))
     # Remove top and right border
     sns.despine(ax=axis, offset=0)
