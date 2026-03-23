@@ -178,6 +178,7 @@ def create_configs(config_filepath=None):
     }
 
     _config['BASIC TRACK DATA ANALYSIS SETTINGS'] = {
+        'movement rounding error threshold': .001,
         'minimal length in seconds': 5,
         'limit track length to x seconds': 20.0,
         'minimal angle in degrees for turning point': 30.0,
