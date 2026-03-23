@@ -377,19 +377,6 @@ def check_logfile(path, max_size=2 ** 20):  # max_size=1 MB
     return path
 
 
-def val_to_float_or_false(value):
-    """Convenience function to convert to float or on ValueError return None
-
-    :param value: value
-    :return: float or None
-    """
-    try:
-        value = float(value)
-    except ValueError:
-        value = False
-    return value
-
-
 def create_results_folder(path):
     """creates a dated result folder in provided path
 
