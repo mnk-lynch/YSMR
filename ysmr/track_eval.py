@@ -1023,7 +1023,6 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
         max_kernel = int(round(fps, 0)) + 1
     else:
         max_kernel = int(round(fps, 0))
-
     # median filter the values to spot general null points in movement
     for kernel_size in [3, max_kernel]:
         df['moving'] = df.groupby('TRACK_ID')['moving'].transform(medfilt, kernel_size=kernel_size)
