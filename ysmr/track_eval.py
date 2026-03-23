@@ -831,7 +831,9 @@ def select_tracks(path_to_file=None, df=None, results_directory=None, fps=None,
                 if curr_length > good_comparator:
                     good_selection = idx_good
                     good_comparator = curr_length
-        good_start, good_stop = good_track_result[good_selection]
+            good_start, good_stop = good_track_result[good_selection]
+            good_track_result = [(good_start, good_stop)]
+
         # limit track length
         if limit_track_to_frames:  # 0 == False
             # Set limit to start time + limit
