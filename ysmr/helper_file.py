@@ -826,6 +826,7 @@ def get_configs(tracking_ini_filepath=None):
                 'percent of screen edges to exclude': adv_track.getfloat('percent of screen edges to exclude') / 100,
                 'maximal recursion depth': adv_track.getint('maximal recursion depth'),  # 0 off
                 'limit track length exactly': adv_track.getboolean('limit track length exactly'),
+                'allow segmented tracks': adv_track.getboolean('allow segmented tracks'),
                 'compare angle between n frames': adv_track.getint('compare angle between n frames'),
                 'force tracking.ini fps settings': adv_track.getboolean('force tracking.ini fps settings'),
 
