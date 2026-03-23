@@ -1084,6 +1084,9 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     if 0 < settings['limit track length to x seconds'] / 2 < 10:
         seconds_difference_list.append(settings['limit track length to x seconds'] / 2)
     seconds_difference = min(seconds_difference_list)
+
+    if settings['verbose']:
+        logger.debug('Calculating Displacement')
     # Get largest displacement per bacterium divided by individual length over ~10 s
     df['x_fps_diff'] = df.groupby('TRACK_ID')['x_norm'].diff(int(round((fps * seconds_difference), 0)))
     df['y_fps_diff'] = df.groupby('TRACK_ID')['y_norm'].diff(int(round((fps * seconds_difference), 0)))
