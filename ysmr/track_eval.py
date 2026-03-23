@@ -170,11 +170,10 @@ def track_bacteria(video_path, settings=None, result_folder=None, **kwargs):
         # gray = cv2.UMat(gray)  # Put after gray conversion
 
         # Stop conditions
-        # if not ret and (frame_count == curr_frame_count + 1 or  # some file formats skip one frame
-        #                 frame_count == curr_frame_count) and frame_count >= settings['minimal frame count'] and curr_frame_count < fps_of_file * 180:
-        if not ret or curr_frame_count >= 180 * fps_of_file: # added 3/28/25 to test functionality of cutting off a video at 3 min
-            # ^ added 3/18/25, did not seem to work. Will try again.
-            # If a frame could not be retrieved and the minimum frame nr. has been reached
+        if not ret and (frame_count == curr_frame_count + 1 or  # some file formats skip one frame
+                        frame_count == curr_frame_count # or frame_count >= fps_of_file * 7*60
+                # for testing, needs option
+        ) and frame_count >= settings['minimal frame count']:
             logger.debug('Frames from file {} read.'.format(filename_ext))
             break
         elif not ret:  # Something must've happened, user decides if to proceed
