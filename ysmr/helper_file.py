@@ -276,6 +276,7 @@ def create_configs(config_filepath=None):
         'percent of screen edges to exclude': 5.0,
         'maximal recursion depth': 960,
         'limit track length exactly': False,
+        'allow segmented tracks': False,
         'compare angle between n frames': 10,
         'force tracking.ini fps settings': False,
     }
