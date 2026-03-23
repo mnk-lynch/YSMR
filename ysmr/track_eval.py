@@ -1015,7 +1015,7 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     # df.reset_index(drop=True, inplace=True)
     # diff_tracks_start, track_change = different_tracks(df)
     df['moving'] = np.where(
-        df['moving'] > 10 / fps, # 1 * fps
+        df['moving'] > settings['movement rounding error threshold'],
         1,
         0
     ).astype(np.int8) # CHANGE ME TO SE MY MOVES
