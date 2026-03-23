@@ -903,7 +903,7 @@ def select_tracks(path_to_file=None, df=None, results_directory=None, fps=None,
     return df
 
 
-def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps=None, **_):
+def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps=None, **kwargs):
     """
     calculate additional info from provided .csv/data frame
 
