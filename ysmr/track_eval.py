@@ -1097,6 +1097,8 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     # longest
     df['tp_dist_by_size_max'] = df.groupby('TRACK_ID')['tp_dist'].transform('max') / df['bac_average_size']
 
+    if settings['verbose']:
+        logger.debug('Calculating Motility Phenotype')
     # Phenotypes: 2: motile; 1: twitching; 0: immotile
     df['motility_phenotype'] = np.zeros(df.shape[0], dtype=np.int8)
     # @todo: tracking.ini for cutoffs
