@@ -237,11 +237,7 @@ def rose_graph(df, plot_title_name, save_path, dist_min=0, dist_max=None, dpi=30
     head_space = 0.05
     width_space = 0.05
 
-    # plt.rcParams.update({'font.size': 8})
-    plt.rcParams['axes.axisbelow'] = True
-
-    gs = gridspec.GridSpec(1, 100, figure=f)
-    gs.update(left=outer_space, right=1 - outer_space, hspace=head_space, wspace=width_space)
+    f, gs = base_figure(gs=True)
 
     rose_plot = plt.subplot(gs[0, :-2])  # xy-centered plots
     dist_bar = plt.subplot(gs[0, -2:])  # distance color-map
