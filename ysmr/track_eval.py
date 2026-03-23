@@ -1042,8 +1042,8 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
                                 df['angle_diff_deg']
                                 ).astype(np.int32)
     df['turn_points'] = np.where(
-        (df['angle_diff'] > min_angle) & (df['moving'] == 1),
-        df['angle_diff'],
+        (df['angle_diff_deg'] > min_angle) & (df['moving'] == 1),
+        df['angle_diff_deg'],
         0).astype(np.int32)
 
     # normalise x/y coordinates, convert from px to micrometre
