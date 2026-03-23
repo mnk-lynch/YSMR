@@ -1115,6 +1115,8 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     motility_categories = ['immotile', 'twitching', 'motile']
     motility_categories = [i for i in range(len(motility_categories))]
 
+    if settings['verbose']:
+        logger.debug('Calculating per bacteria statistics')
     # df['motility_phenotype'].replace(  # replace 0 / 1 / 2 with immotile / twitching / motile
     #     {value: key for key, value in zip(motility_categories, range(0, len(motility_categories) + 1))},
     #     inplace=True)
@@ -1212,8 +1214,13 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     ],
         keys=name_of_columns, axis=1
     )
+
+    if settings['verbose']:
+        logger.debug('Deleting unneeded series')
     del turn_per_s_series, dist_series, speed_series, time_series, pdist_series, motile_series, median_speed
 
+    if settings['verbose']:
+        logger.debug('Saving stats data file')
     if settings['store generated statistical .csv file']:
         # df_stats_columns = name_of_columns
         # switch IDs to first column
@@ -1223,6 +1230,9 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
             save_path=save_path.format('statistics', '.csv')
         )
         # df_stats.reindex(columns=name_of_columns)
+
+    if settings['verbose']:
+        logger.debug('Setting Motile/Immotile/Twitching')
     # OH GREAT MOTILITY ORACLE, WHAT WILL MY BACTERIAS MOVES BE LIKE?
     nonmotile = df_stats['Motility Phenotype'].where(
         df_stats['Motility Phenotype'] == motility_categories[0]).count() / df_stats.shape[0]
@@ -1251,6 +1261,8 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
             'could not be assigned, reverted to \'perc. motile\'.')
         cut_off_parameter = name_of_columns[5]
 
+    if settings['verbose']:
+        logger.debug('Violin plots')
     cut_off_list = settings['split violin plots on']
 
     if cut_off_parameter == name_of_columns[9]:
