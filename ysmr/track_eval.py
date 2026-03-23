@@ -1045,7 +1045,8 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
         (df['angle_diff_deg'] > min_angle) & (df['moving'] == 1),
         df['angle_diff_deg'],
         0).astype(np.int32)
-
+    if settings['verbose']:
+        logger.debug('Normalizing x/y coordinates')
     # normalise x/y coordinates, convert from px to micrometre
     df['x_norm'] = (df['POSITION_X'].sub(df.groupby('TRACK_ID')['POSITION_X'].transform('first'))) / px_to_micrometre
     df['y_norm'] = (df['POSITION_Y'].sub(df.groupby('TRACK_ID')['POSITION_Y'].transform('first'))) / px_to_micrometre
