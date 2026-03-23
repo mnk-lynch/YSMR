@@ -1424,7 +1424,7 @@ def save_df_to_csv(df, save_path, rename_old_file=True):
         try:
             old_df_path, old_df_ext = os.path.split(save_path)
             old_csv = os.path.join(old_df_path, '{}.{}'.format(
-                datetime.now().strftime('%y%m%d%H%M%S'), old_df_ext
+                datetime_now_string(), old_df_ext
             ))
             os.rename(save_path, old_csv)
             logger.critical('Old {} renamed to {}'.format(os.path.basename(save_path), old_csv))
