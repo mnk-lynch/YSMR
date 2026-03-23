@@ -689,6 +689,18 @@ def get_configs(tracking_ini_filepath=None):
                         'exclusive. If you wish to include values at 100 %, consider setting the highest limit to '
                         '100.001 or similar.'
                     ]
+            if ROI.get('split analysis at time points (s)') != 'False':
+                try:
+                    split_on_time = [float(i.strip()) for i in ROI.get('split analysis at time points (s)').split(',')]
+                except ValueError:
+                    split_on_time = False
+                    logger.critical(
+                        f"Could not set 'split analysis at time points (s)' error."
+                        f" Setting provided: {ROI.get('split analysis at time points (s)')}"
+                    )
+                    raise ValueError
+            else:
+                split_on_time = False
             gsff_max_size = gsff.get('maximum horizon size')
             try:
                 gsff_max_size = int(gsff_max_size)
