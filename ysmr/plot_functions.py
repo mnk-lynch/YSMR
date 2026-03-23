@@ -97,6 +97,29 @@ def angle_distribution_plot(df, bins_number, plot_title_name, save_path, dpi=300
     plt.close()
 
 
+def base_figure(
+        width=11.6929133858,
+        height=8.2677165354,
+        gs=False,
+        outer_space=.05,
+        head_space=.05,
+        width_space=.05,
+        gs_rows=1,
+        gs_cols=100,
+        axis_below=True,
+):
+    # set up figure
+    f = plt.figure()
+    f.set_size_inches(width, height)
+
+    # plt.rcParams.update({'font.size': 8})
+    plt.rcParams['axes.axisbelow'] = axis_below
+    if gs:
+        gs = gridspec.GridSpec(gs_rows, gs_cols, figure=f)
+        gs.update(left=outer_space, right=1 - outer_space, hspace=head_space, wspace=width_space)
+    return f, gs
+
+
 def colour_bar(ax, dist_min, dist_max):
     """
     Adds a colour bar element to axis
