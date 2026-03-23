@@ -1000,7 +1000,6 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     df['travelled_dist'] = np.sqrt(np.square(df['x_delta']) + np.square(df['y_delta'])) / px_to_micrometre
     df['moving'] = df['travelled_dist'] / df['t_delta']
     # get rid of rounding errors, convert to binary:
-    # @todo: set higher limit when gsff is used; let user choose
     # df['moving'] = np.where(df['moving'] > 10 ** -3, 1, 0).astype(np.int8) # CHANGE ME TO SE MY MOVES
     # df['median_speed'] = df.groupby('TRACK_ID')['moving'].transform('median') * fps
     # df['median_speed'] = np.where(
