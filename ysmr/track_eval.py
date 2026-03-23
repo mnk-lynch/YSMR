@@ -1018,7 +1018,7 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
         df['moving'] > settings['movement rounding error threshold'],
         1,
         0
-    ).astype(np.int8) # CHANGE ME TO SE MY MOVES
+    ).astype(np.int8)
     if int(round(fps, 0)) & 1 == 0:  # if fps is even
         max_kernel = int(round(fps, 0)) + 1
     else:
