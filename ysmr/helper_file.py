@@ -1155,6 +1155,11 @@ def log_infos(settings):
         logger.info('Tracks will not be split on error as '
                     '\'maximal recursion depth\' is set to 0. '
                     'This could severely reduce the number of viable tracks.')
+    if settings['allow segmented tracks']:
+        logger.warning(
+            'Warning, experimental feature: All parts of fragmented tracks will be kept. '
+            'This may severely impact analysis results.'
+        )
 
     # Debug messages
     logger.debug('White bacteria on dark background set to {}'.format(
