@@ -1526,17 +1526,6 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
                 plot_title_name=plot_title_name,
             )
 
-    df_passed_columns = [
-        'TRACK_ID', 'POSITION_T', 'POSITION_X', 'POSITION_Y', 'WIDTH', 'HEIGHT', 'DEGREES_ANGLE',
-        'angle_diff', 'moving', 'turn_points', 'tp_of_tracks', 'travelled_dist', 'motility_phenotype'
-    ]
-    df = df.loc[:, df_passed_columns]  # drop unnecessary columns
-    if settings['store final analysed .csv file']:
-        save_df_to_csv(
-            df=df,
-            save_path=save_path.format('analysed', '.csv')
-        )
-
     end_string = 'Done evaluating file {}'.format(file_name)
     logging.info(end_string)
     return df, df_stats
