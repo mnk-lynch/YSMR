@@ -22,6 +22,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+import pandas as pd
 
 __all__ = ['angle_distribution_plot', 'large_xy_plot', 'rose_graph', 'violin_plot']
 
