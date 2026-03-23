@@ -963,10 +963,6 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     df['x_delta'] = df['POSITION_X'].diff()
     df['y_delta'] = df['POSITION_Y'].diff()
     df['t_delta'] = df['POSITION_T'].diff()
-    
-    # df['x_delta'] = df.groupby('TRACK_ID')['POSITION_X'].diff().fillna(0)
-    # df['y_delta'] = df.groupby('TRACK_ID')['POSITION_Y'].diff().fillna(0)
-    # df['t_delta'] = df.groupby('TRACK_ID')['POSITION_T'].diff().fillna(1) 
 
     # Set correct values for track starts
     df.loc[diff_tracks_start, ['x_delta', 'y_delta']] = 0
