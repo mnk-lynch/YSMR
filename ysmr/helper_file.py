@@ -116,7 +116,7 @@ def collate_results_csv_to_xlsx(path=None, save_path=None, csv_extension='statis
             ('csv', '.csv'),
             ('all files', '.*'),
         ])
-    file_path = os.path.join(save_path, '{}_collated_statistics.xlsx'.format(datetime.now().strftime('%y%m%d%H%M%S')))
+    file_path = os.path.join(save_path, '{}_collated_statistics.xlsx'.format(datetime_now_string()))
     paths = find_paths(base_path=path, extension=csv_extension)
     if paths:
         writer = pd.ExcelWriter(file_path, engine='xlsxwriter')
