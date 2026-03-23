@@ -1050,7 +1050,12 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     # normalise x/y coordinates, convert from px to micrometre
     df['x_norm'] = (df['POSITION_X'].sub(df.groupby('TRACK_ID')['POSITION_X'].transform('first'))) / px_to_micrometre
     df['y_norm'] = (df['POSITION_Y'].sub(df.groupby('TRACK_ID')['POSITION_Y'].transform('first'))) / px_to_micrometre
-
+    if settings['split on white lines']:
+        df['x_median'] = df.groupby('TRACK_ID')['POSITION_X'].transform('median')
+    if settings['split on white lines']:
+        df['t_first'] = df.groupby('TRACK_ID')['POSITION_T'].transform('first')
+    if settings['verbose']:
+        logger.debug('Calculating Turning Points')
     # get local maxima
     df['turn_points'] = df.groupby('TRACK_ID')['turn_points'].transform(
         argrelextrema_groupby
