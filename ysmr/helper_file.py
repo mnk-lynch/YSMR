@@ -62,7 +62,9 @@ def argrelextrema_groupby(group, comparator=np.greater_equal, order=10, shift_ra
             result = np.where((
                 (result == 1) &
                 (query == 1),
-                0, result))
+                0,
+                result
+            )
     result = np.where(result == 1, group_intermediate, fill_value)
     # @todo: check if we can skip the series conversion while using this with df .transform instead of .apply
     result = pd.Series(result, index=group.index)  # .reindex_like(group)
