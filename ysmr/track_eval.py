@@ -181,12 +181,6 @@ def track_bacteria(video_path, settings=None, result_folder=None, **kwargs):
             error_during_read = settings['stop evaluation on error']
             break
 
-        # ## ROI CROPPING LOGIC ADDED 10/15/25 MNL
-        #     # Slice the frame array using the ROI coordinates
-        # if ROI_w < frame_width or ROI_h < frame_height:
-        #     frame = frame[ROI_y:ROI_y + ROI_h, ROI_x:ROI_x + ROI_w]
-        #     # After cropping, the size of 'frame' will now be (roi_h, roi_w)
-
         gray = cv2.cvtColor(frame, settings['color filter'])  # Convert to gray scale
 
         blurred = cv2.GaussianBlur(gray, (3, 3), 0)  # blur
