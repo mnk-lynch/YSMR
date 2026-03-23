@@ -59,7 +59,7 @@ def argrelextrema_groupby(group, comparator=np.greater_equal, order=10, shift_ra
         result_comp = result
         for d_shift in range(-1, -(shift_range + 1)):
             query = shift_np_array(result_comp, d_shift, 0)
-            result = np.where((
+            result = np.where(
                 (result == 1) &
                 (query == 1),
                 0,
