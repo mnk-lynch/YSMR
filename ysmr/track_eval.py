@@ -835,21 +835,22 @@ def select_tracks(path_to_file=None, df=None, results_directory=None, fps=None,
             good_track_result = [(good_start, good_stop)]
 
         # limit track length
-        if limit_track_to_frames:  # 0 == False
-            # Set limit to start time + limit
-            limit_track_length_curr = limit_track_to_frames + df.loc[good_start, 'POSITION_T'] - 1
-            # get index of time point closest to limit or maximum
-            if not settings['limit track length exactly']:
-                good_stop_curr = df.loc[good_start:good_stop, 'POSITION_T'].where(
-                    df.loc[good_start:good_stop, 'POSITION_T'] <= limit_track_length_curr).idxmax()
-            else:
-                good_stop_curr = df.loc[good_start:good_stop, 'POSITION_T'].where(
-                    df.loc[good_start:good_stop, 'POSITION_T'] == limit_track_length_curr).idxmax()
-            if np.isnan(good_stop_curr):
-                continue
-            good_stop = good_stop_curr
-            # Exclude NaNs in case no index can be found within returned track
-        good_track.append((good_start, good_stop))
+        for (good_start, good_stop) in good_track_result:
+            if limit_track_to_frames:  # 0 == False
+                # Set limit to start time + limit
+                limit_track_length_curr = limit_track_to_frames + df.loc[good_start, 'POSITION_T'] - 1
+                # get index of time point closest to limit or maximum
+                if not settings['limit track length exactly']:
+                    good_stop_curr = df.loc[good_start:good_stop, 'POSITION_T'].where(
+                        df.loc[good_start:good_stop, 'POSITION_T'] <= limit_track_length_curr).idxmax()
+                else:
+                    good_stop_curr = df.loc[good_start:good_stop, 'POSITION_T'].where(
+                        df.loc[good_start:good_stop, 'POSITION_T'] == limit_track_length_curr).idxmax()
+                if np.isnan(good_stop_curr):
+                    continue
+                good_stop = good_stop_curr
+                # Exclude NaNs in case no index can be found within returned track
+            good_track.append((good_start, good_stop))
     logger.info('All tracks before fine selection: {}, left over: {}, difference: {}'.format(
         len(track_change), len(good_track), (len(track_change) - len(good_track))))
     '''
