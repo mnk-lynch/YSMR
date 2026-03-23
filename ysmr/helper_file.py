@@ -153,7 +153,7 @@ def create_configs(config_filepath=None):
         config_filepath = os.path.join(os.path.abspath('./'), 'tracking.ini')
     try:
         config_path_root, config_file_ext = os.path.splitext(config_filepath)
-        old_tracking_ini = '{}_{}{}'.format(config_path_root, datetime.now().strftime('%y%m%d%H%M%S'), config_file_ext)
+        old_tracking_ini = '{}_{}{}'.format(config_path_root, datetime_now_string(), config_file_ext)
         os.rename(config_filepath, old_tracking_ini)
         logger.warning('Old tracking.ini renamed to {}'.format(old_tracking_ini))
     except FileNotFoundError:
