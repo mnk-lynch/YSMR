@@ -23,7 +23,6 @@ import platform
 import subprocess
 import sys
 
-from moviepy import VideoFileClip # MNL added 4/18/2025
 from datetime import datetime
 from glob import glob
 from logging.handlers import QueueHandler, QueueListener
@@ -60,10 +59,12 @@ def argrelextrema_groupby(group, comparator=np.greater_equal, order=10, shift_ra
         result_comp = result
         for d_shift in range(-1, -(shift_range + 1)):
             query = shift_np_array(result_comp, d_shift, 0)
-            result = np.where((
+            result = np.where(
                 (result == 1) &
                 (query == 1),
-                0, result))
+                0,
+                result
+            )
     result = np.where(result == 1, group_intermediate, fill_value)
     # @todo: check if we can skip the series conversion while using this with df .transform instead of .apply
     result = pd.Series(result, index=group.index)  # .reindex_like(group)
@@ -117,7 +118,7 @@ def collate_results_csv_to_xlsx(path=None, save_path=None, csv_extension='statis
             ('csv', '.csv'),
             ('all files', '.*'),
         ])
-    file_path = os.path.join(save_path, '{}_collated_statistics.xlsx'.format(datetime.now().strftime('%y%m%d%H%M%S')))
+    file_path = os.path.join(save_path, '{}_collated_statistics.xlsx'.format(datetime_now_string()))
     paths = find_paths(base_path=path, extension=csv_extension)
     if paths:
         writer = pd.ExcelWriter(file_path, engine='xlsxwriter')
@@ -154,7 +155,7 @@ def create_configs(config_filepath=None):
         config_filepath = os.path.join(os.path.abspath('./'), 'tracking.ini')
     try:
         config_path_root, config_file_ext = os.path.splitext(config_filepath)
-        old_tracking_ini = '{}_{}{}'.format(config_path_root, datetime.now().strftime('%y%m%d%H%M%S'), config_file_ext)
+        old_tracking_ini = '{}_{}{}'.format(config_path_root, datetime_now_string(), config_file_ext)
         os.rename(config_filepath, old_tracking_ini)
         logger.warning('Old tracking.ini renamed to {}'.format(old_tracking_ini))
     except FileNotFoundError:
@@ -176,9 +177,13 @@ def create_configs(config_filepath=None):
         'ROI_y': 0,
         'ROI_height': 1080,
         'ROI_width': 1920,
+        'split on white lines': True,
+        'frequency of checking white line position in frames': 60,
+        'split analysis at time points (s)': '0.0, 60.0, 240.0',
     }
 
     _config['BASIC TRACK DATA ANALYSIS SETTINGS'] = {
+        'movement rounding error threshold': .001,
         'minimal length in seconds': 5,
         'limit track length to x seconds': 20.0,
         'minimal angle in degrees for turning point': 30.0,
@@ -208,6 +213,7 @@ def create_configs(config_filepath=None):
         'save length violin plot': True,
         'save turning point violin plot': True,
         'save speed violin plot': True,
+        'save median speed violin plot': True,
         'save angle distribution plot / bins': 36,
         'save displacement violin plot': True,
         'save percent motile plot': True,
@@ -277,6 +283,7 @@ def create_configs(config_filepath=None):
         'percent of screen edges to exclude': 5.0,
         'maximal recursion depth': 960,
         'limit track length exactly': False,
+        'allow segmented tracks': False,
         'compare angle between n frames': 10,
         'force tracking.ini fps settings': False,
     }
@@ -378,19 +385,6 @@ def check_logfile(path, max_size=2 ** 20):  # max_size=1 MB
     return path
 
 
-def val_to_float_or_false(value):
-    """Convenience function to convert to float or on ValueError return None
-
-    :param value: value
-    :return: float or None
-    """
-    try:
-        value = float(value)
-    except ValueError:
-        value = False
-    return value
-
-
 def create_results_folder(path):
     """creates a dated result folder in provided path
 
@@ -453,6 +447,13 @@ def creation_date(path_to_file):
         return None
 
 
+def datetime_now_string() -> str:
+    """ Return a datetime string in the format YYYYMMDDHHMMSS
+    """
+    return datetime.now().strftime('%y%m%d%H%M%S')
+
+
+
 def different_tracks(data, column='TRACK_ID'):
     """check for changes in column, return lists of start-/stop-indices
 
@@ -488,6 +489,15 @@ def elapsed_time(time_one):
         logger.exception(val_error)
         return None
     return time_delta
+
+
+def extract_frame_maxima(metadata: dict, identifier: str = '_frame_maxima') -> dict:
+    """extract key: item pairs from a dictionary based on an identifier in the key,
+    return keys as integers removed from the identifier.
+    """
+    return {
+        int(key[:-len(identifier)]): val for key, val in metadata.items() if identifier.lower() in key.lower()
+    }
 
 
 def find_paths(base_path, extension, minimal_age=0, maximal_age=np.inf, recursive=True):
@@ -674,6 +684,18 @@ def get_configs(tracking_ini_filepath=None):
                         'exclusive. If you wish to include values at 100 %, consider setting the highest limit to '
                         '100.001 or similar.'
                     ]
+            if ROI.get('split analysis at time points (s)') != 'False':
+                try:
+                    split_on_time = [float(i.strip()) for i in ROI.get('split analysis at time points (s)').split(',')]
+                except ValueError:
+                    split_on_time = False
+                    logger.critical(
+                        f"Could not set 'split analysis at time points (s)' error."
+                        f" Setting provided: {ROI.get('split analysis at time points (s)')}"
+                    )
+                    raise ValueError
+            else:
+                split_on_time = False
             gsff_max_size = gsff.get('maximum horizon size')
             try:
                 gsff_max_size = int(gsff_max_size)
@@ -700,6 +722,11 @@ def get_configs(tracking_ini_filepath=None):
                 'ROI_y': ROI.getint('ROI_y'),
                 'ROI_height': ROI.getint('ROI_height'),
                 'ROI_width': ROI.getint('ROI_width'),
+                'split on white lines': ROI.getboolean('split on white lines'),
+                'frequency of checking white line position in frames': ROI.getfloat(
+                    'frequency of checking white line position in frames'
+                ),
+                'split analysis at time points (s)': split_on_time,
 
                 # _config['BASIC TRACK DATA ANALYSIS SETTINGS']
                 'minimal length in seconds': basic_track.getfloat('minimal length in seconds'),
@@ -710,6 +737,8 @@ def get_configs(tracking_ini_filepath=None):
                     'extreme area outliers lower end in px*px'),
                 'extreme area outliers upper end in px*px': basic_track.getint(
                     'extreme area outliers upper end in px*px'),
+                'movement rounding error threshold': basic_track.getfloat(
+                    'movement rounding error threshold'),
 
                 # _config['DISPLAY SETTINGS']
                 'user input': display.getboolean('user input'),
@@ -734,6 +763,7 @@ def get_configs(tracking_ini_filepath=None):
                 'save length violin plot': results.getboolean('save length violin plot'),
                 'save turning point violin plot': results.getboolean('save turning point violin plot'),
                 'save speed violin plot': results.getboolean('save speed violin plot'),
+                'save median speed violin plot': results.getboolean('save median speed violin plot'),
                 'save angle distribution plot / bins': results.getint('save angle distribution plot / bins'),
                 'save displacement violin plot': results.getboolean('save displacement violin plot'),
                 'save percent motile plot': results.getboolean('save percent motile plot'),
@@ -811,6 +841,7 @@ def get_configs(tracking_ini_filepath=None):
                 'percent of screen edges to exclude': adv_track.getfloat('percent of screen edges to exclude') / 100,
                 'maximal recursion depth': adv_track.getint('maximal recursion depth'),  # 0 off
                 'limit track length exactly': adv_track.getboolean('limit track length exactly'),
+                'allow segmented tracks': adv_track.getboolean('allow segmented tracks'),
                 'compare angle between n frames': adv_track.getint('compare angle between n frames'),
                 'force tracking.ini fps settings': adv_track.getboolean('force tracking.ini fps settings'),
 
@@ -1140,6 +1171,11 @@ def log_infos(settings):
         logger.info('Tracks will not be split on error as '
                     '\'maximal recursion depth\' is set to 0. '
                     'This could severely reduce the number of viable tracks.')
+    if settings['allow segmented tracks']:
+        logger.warning(
+            'Warning, experimental feature: All parts of fragmented tracks will be kept. '
+            'This may severely impact analysis results.'
+        )
 
     # Debug messages
     logger.debug('White bacteria on dark background set to {}'.format(
@@ -1341,6 +1377,8 @@ def metadata_file(path=None, verbose=False, additional_search_paths=None, **kwar
             # clear None values
             meta_data.update({key: val for key, val in meta_data_unfiltered.items() if val is not None})
             save_path = curr_path
+            if verbose:
+                logger.debug('Found file at path: {}'.format(curr_path))
             break
         except (FileNotFoundError, PermissionError, ValueError):
             # JSONDecodeerror is a ValueError
@@ -1402,7 +1440,7 @@ def save_df_to_csv(df, save_path, rename_old_file=True):
         try:
             old_df_path, old_df_ext = os.path.split(save_path)
             old_csv = os.path.join(old_df_path, '{}.{}'.format(
-                datetime.now().strftime('%y%m%d%H%M%S'), old_df_ext
+                datetime_now_string(), old_df_ext
             ))
             os.rename(save_path, old_csv)
             logger.critical('Old {} renamed to {}'.format(os.path.basename(save_path), old_csv))
@@ -1423,6 +1461,10 @@ def save_df_to_csv(df, save_path, rename_old_file=True):
         logger.exception(template.format(type(ex).__name__, ex.args, save_path))
     finally:
         pass
+
+
+def safe_save_file_name(file_name: str) -> str:
+    return ''.join([l if l.isalnum() else '_' for l in file_name])
 
 
 def save_list(path, result_folder=None, coords=None, first_call=False, rename_old_list=True, illumination=False):
@@ -1449,7 +1491,7 @@ def save_list(path, result_folder=None, coords=None, first_call=False, rename_ol
             pathname = result_folder
         filename = os.path.splitext(filename_ext)[0]
         file_csv = os.path.join(pathname, '{}_list.csv'.format(filename))
-        now = datetime.now().strftime('%y%m%d%H%M%S')
+        now = datetime_now_string()
         old_list = False
         permission_error = False
         if os.path.isfile(file_csv):
@@ -1665,6 +1707,19 @@ def shutdown(seconds=60):
                 logger.exception('Error during shutdown: {}'.format(os_shutdown_error))
         finally:
             pass
+
+
+def val_to_float_or_false(value):
+    """Convenience function to convert to float or on ValueError return None
+
+    :param value: value
+    :return: float or None
+    """
+    try:
+        value = float(value)
+    except ValueError:
+        value = False
+    return value
 
 
 if __name__ == '__main__':

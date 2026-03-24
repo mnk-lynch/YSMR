@@ -15,6 +15,7 @@ details. You should have received a copy of the GNU General Public License along
 not, see <http://www.gnu.org/licenses/>.
 """
 
+import os
 import logging
 
 import matplotlib as mpl
@@ -22,6 +23,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+import pandas as pd
 
 __all__ = ['angle_distribution_plot', 'large_xy_plot', 'rose_graph', 'violin_plot']
 
@@ -41,6 +43,11 @@ def angle_distribution_plot(df, bins_number, plot_title_name, save_path, dpi=300
     """
     logger = logging.getLogger('ysmr').getChild(__name__)
     angle_radians = df['angle_diff']
+    if df['angle_diff'].max() > 2 * np.pi:
+        logger.warning(
+            f"Maximum angle in radians is {df['angle_diff'].max():.2f} - "
+            f"check if angles where incorrectly provided in degrees."
+        )
     # Create array with average motility percentage per track
     average_minimum_groups = df.groupby('TRACK_ID')['moving']
     min_average = np.repeat(average_minimum_groups.mean().to_numpy(), average_minimum_groups.count().to_numpy())
@@ -90,6 +97,29 @@ def angle_distribution_plot(df, bins_number, plot_title_name, save_path, dpi=300
     plt.close()
 
 
+def base_figure(
+        width=11.6929133858,
+        height=8.2677165354,
+        gs=False,
+        outer_space=.05,
+        head_space=.05,
+        width_space=.05,
+        gs_rows=1,
+        gs_cols=100,
+        axis_below=True,
+):
+    # set up figure
+    f = plt.figure()
+    f.set_size_inches(width, height)
+
+    # plt.rcParams.update({'font.size': 8})
+    plt.rcParams['axes.axisbelow'] = axis_below
+    if gs:
+        gs = gridspec.GridSpec(gs_rows, gs_cols, figure=f)
+        gs.update(left=outer_space, right=1 - outer_space, hspace=head_space, wspace=width_space)
+    return f, gs
+
+
 def colour_bar(ax, dist_min, dist_max):
     """
     Adds a colour bar element to axis
@@ -125,19 +155,7 @@ def large_xy_plot(df, plot_title_name, save_path, px_to_micrometre=1, dist_min=0
     """
     logger = logging.getLogger('ysmr').getChild(__name__)
 
-    f = plt.figure()
-    f.set_size_inches(11.6929133858, 8.2677165354)
-
-    outer_space = 0.05
-    # inner_space = 0.03
-    head_space = 0.05
-    width_space = 0.05
-
-    # plt.rcParams.update({'font.size': 8})
-    plt.rcParams['axes.axisbelow'] = True
-
-    gs = gridspec.GridSpec(1, 100, figure=f)
-    gs.update(left=outer_space, right=1 - outer_space, hspace=head_space, wspace=width_space)
+    f, gs = base_figure(gs=True)
 
     if not dist_max:
         try:
@@ -210,20 +228,8 @@ def rose_graph(df, plot_title_name, save_path, dist_min=0, dist_max=None, dpi=30
             dist_max = df['travelled_dist'].max()
         except KeyError:
             dist_max = df['distance_colour'].max()
-    # set up figure
-    f = plt.figure()
-    f.set_size_inches(11.6929133858, 8.2677165354)
 
-    outer_space = 0.05
-    # inner_space = 0.03
-    head_space = 0.05
-    width_space = 0.05
-
-    # plt.rcParams.update({'font.size': 8})
-    plt.rcParams['axes.axisbelow'] = True
-
-    gs = gridspec.GridSpec(1, 100, figure=f)
-    gs.update(left=outer_space, right=1 - outer_space, hspace=head_space, wspace=width_space)
+    f, gs = base_figure(gs=True)
 
     rose_plot = plt.subplot(gs[0, :-2])  # xy-centered plots
     dist_bar = plt.subplot(gs[0, -2:])  # distance color-map
@@ -310,26 +316,30 @@ def violin_plot(df, save_path, category, cut_off_category, cut_off_list, plot_ti
               which='major',
               # color='gray',
               alpha=0.80, )
-    sns.violinplot(y=df[category],
-                   x=df[cut_off_category],
-                   # hue=df_stats[name_of_columns[-1]],
-                   # dodge=False,
-                   orient='v',
-                   cut=0,
-                   ax=axis,
-                   scale='count',  # 'width' 'count' 'area'
-                   width=0.95,
-                   linewidth=1,
-                   bw=.2,
-                   # inner='stick',
-                   )
-    sns.swarmplot(y=df[category],
-                  x=df[cut_off_category],
-                  orient='v',
-                  color="grey",
-                  size=3,
-                  alpha=0.5,
+    sns.violinplot(
+        y=df[category],
+        x=df[cut_off_category],
+        # hue=df_stats[name_of_columns[-1]],
+        # dodge=False,
+        orient='v',
+        cut=0,
+        ax=axis,
+        # scale='count',  # 'width' 'count' 'area'
+        density_norm='count',  # Seaborn v0.15.0
+        width=0.95,
+        linewidth=1,
+        # bw=.2,
+        bw_method=0.2,  # Seaborn v0.15.0
+        # inner='stick',
     )
+    # @todo: make size dependent check / optional in settings
+    # sns.swarmplot(y=df[category],
+    #               x=df[cut_off_category],
+    #               orient='v',
+    #               color="grey",
+    #               size=1,
+    #               alpha=0.5,
+    # )
     axis.set(ylim=(y_min, y_max))
     # Remove top and right border
     sns.despine(ax=axis, offset=0)

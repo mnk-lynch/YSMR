@@ -24,18 +24,19 @@ import cv2
 import numpy as np
 import pandas as pd
 from scipy.ndimage import binary_propagation
-from scipy.signal import medfilt
+from scipy.signal import medfilt, argrelextrema
 from scipy.spatial import distance as dist
 
 from ysmr.helper_file import (argrelextrema_groupby, create_results_folder, different_tracks, get_configs, get_data,
-                              get_loggers, reshape_result, save_df_to_csv, save_list, sort_list)
+                              get_loggers, reshape_result, save_df_to_csv, save_list, sort_list, metadata_file,
+                              extract_frame_maxima, safe_save_file_name)
 from ysmr.plot_functions import angle_distribution_plot, large_xy_plot, rose_graph, violin_plot
 from ysmr.tracker import CentroidTracker
 
 __all__ = ['track_bacteria', 'select_tracks', 'evaluate_tracks', 'annotate_video']
 
 
-def track_bacteria(video_path, settings=None, result_folder=None):
+def track_bacteria(video_path, settings=None, result_folder=None, **kwargs):
     """
     Detect and track bright spots in a video file, save output to a .csv file
 
@@ -56,7 +57,8 @@ def track_bacteria(video_path, settings=None, result_folder=None):
         logfile_name=settings['log file path'],
         short_stream_output=settings['shorten displayed logging output'],
         short_file_output=settings['shorten logfile logging output'],
-        log_to_file=settings['log to file'])
+        log_to_file=settings['log to file'],
+    )
     # Check for errors
     if not os.path.isfile(video_path):
         logger.critical('File {} does not exist'.format(video_path))
@@ -95,30 +97,18 @@ def track_bacteria(video_path, settings=None, result_folder=None):
     if not result_folder:
         result_folder = create_results_folder(video_path)
 
-    ## ROI LOGIC ADDED 10/15/25 MNL
-    # ROI_x = settings.get('ROI_x', 0)
-    # ROI_y = settings.get('ROI_y', 0)
-    # ROI_w = settings.get('ROI_width', frame_width)  # Use full width/height as default
-    # ROI_h = settings.get('ROI_height', frame_height)  # Use full width/height as default
-    #
-    # # Ensure ROI is valid before starting loop
-    # if ROI_x + ROI_w > frame_width or ROI_y + ROI_h > frame_height:
-    #     logger.critical('ROI settings are outside the frame boundaries. Analysis stopped.')
-    #     return None
-    #
-    # if settings['verbose']:
-    #     logger.info(f"Using ROI: x={ROI_x}, y={ROI_y}, w={ROI_w}, h={ROI_h}")
-
     pathname, filename_ext = os.path.split(video_path)
     filename = os.path.splitext(filename_ext)[0]
     logger.info('Starting with file {}'.format(video_path))
 
     # Set initial values; initialise result list
-    old_list, list_name = save_list(path=video_path,
-                                    result_folder=result_folder,
-                                    first_call=True,
-                                    rename_old_list=settings['rename previous result .csv'],
-                                    illumination=settings['include luminosity in tracking calculation'])
+    old_list, list_name = save_list(
+        path=video_path,
+        result_folder=result_folder,
+        first_call=True,
+        rename_old_list=settings['rename previous result .csv'],
+        illumination=settings['include luminosity in tracking calculation'],
+    )
     # Save old_list_name for later if it exists; False otherwise
     ct = CentroidTracker(  # Initialise tracker instance
         max_disappeared=fps_of_file,
@@ -157,6 +147,7 @@ def track_bacteria(video_path, settings=None, result_folder=None):
     # Background removal:
     # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
+    # @todo: what isn't working here?
     # if settings['save video']:
     #     output_video_name = '{}/{}_output.avi'.format(result_folder, filename)
     #     logger.info('Output video file: {}'.format(output_video_name))
@@ -165,7 +156,7 @@ def track_bacteria(video_path, settings=None, result_folder=None):
     #                           fps_of_file,  # FPS
     #                           (frame_width, frame_height)  # Dimensions
     #                           )
-    # # min_frame_count += skip_frames
+    # min_frame_count += skip_frames
 
     while True:  # Loop over video
         # if cv2.waitKey(1) & 0xFF == ord('n'):  # frame-by-frame
@@ -174,19 +165,15 @@ def track_bacteria(video_path, settings=None, result_folder=None):
         # ret: True/False, depends on whether another frame could be retrieved
         # frame: the actual current frame
 
-        # if curr_frame_count < skip_frames:
-        #     continue  # skip frame/jump back to start
         # uMatframe = cv2.UMat(frame)
         # UMat: should utilise graphics card; tends to slow down the whole thing a lot
         # gray = cv2.UMat(gray)  # Put after gray conversion
 
         # Stop conditions
         if not ret and (frame_count == curr_frame_count + 1 or  # some file formats skip one frame
-                        frame_count == curr_frame_count) and frame_count >= settings['minimal frame count']:
-        #if not ret and (frame_count == curr_frame_count + 1 or  # some file formats skip one frame
-                        #frame_count == curr_frame_count) and frame_count >= settings['minimal frame count'] or curr_frame_count >= 180 * fps_of_file: # added 3/28/25 to test functionality of cutting off a video at 3 min
-            # ^ added 3/18/25, did not seem to work. Will try again.
-            # If a frame could not be retrieved and the minimum frame nr. has been reached
+                        frame_count == curr_frame_count # or frame_count >= fps_of_file * 7*60
+                # for testing, needs option
+        ) and frame_count >= settings['minimal frame count']:
             logger.debug('Frames from file {} read.'.format(filename_ext))
             break
         elif not ret:  # Something must've happened, user decides if to proceed
@@ -194,15 +181,46 @@ def track_bacteria(video_path, settings=None, result_folder=None):
             error_during_read = settings['stop evaluation on error']
             break
 
-        # ## ROI CROPPING LOGIC ADDED 10/15/25 MNL
-        #     # Slice the frame array using the ROI coordinates
-        # if ROI_w < frame_width or ROI_h < frame_height:
-        #     frame = frame[ROI_y:ROI_y + ROI_h, ROI_x:ROI_x + ROI_w]
-        #     # After cropping, the size of 'frame' will now be (roi_h, roi_w)
-
         gray = cv2.cvtColor(frame, settings['color filter'])  # Convert to gray scale
 
         blurred = cv2.GaussianBlur(gray, (3, 3), 0)  # blur
+
+        # @todo: add settings.ini variable for option / modulo
+        if (settings['split on white lines'] and
+                curr_frame_count % settings['frequency of checking white line position in frames'] == 0):
+            # Sum brightness of frame so we end up with a x-axis brightness signal
+            linear_frame = np.sum(blurred, 0)
+
+            # # First approach
+            # # Remove low noise / background
+            # linear_frame = medfilt(linear_frame, 3)
+            # # Get maxima indices
+            # _maxima = argrelextrema(linear_frame, np.greater)
+
+            # As lines are full white while rest of frame isn't, cut off signal at 95 percentile, convert to binary
+            # This additionally has the upside that we will always get edges between bright and dark
+
+            if settings['white bacteria on dark background']:
+                linear_frame = np.where(  # create vector with condition:
+                    linear_frame > np.percentile(linear_frame, 95),
+                    1,  # if True
+                    0  # Otherwise
+                )
+            else:
+                linear_frame = np.where(  # create vector with condition:
+                    linear_frame < np.percentile(linear_frame, 5),
+                    1,  # if True
+                    0  # Otherwise
+                )
+            # Get indices where we go from 0 to 1 or inverse
+            # stackoverflow.com/questions/19125661/find-index-where-elements-change-value-numpy/39989397#39989397
+            _maxima = np.where(np.roll(linear_frame,1) != linear_frame)[0]
+            if settings['debugging']:
+                logging.debug(
+                    f"Found maxima in frame {curr_frame_count}: {', '.join(str(i) for i in _maxima.tolist())}"
+                )
+            # Store in kwargs
+            kwargs.update({f'{curr_frame_count}_frame_maxima': _maxima.tolist()})
 
         # All pixels above curr_threshold are set to 255 (white); others are set to 0
         if settings['adaptive double threshold'] >= 0:
@@ -387,7 +405,7 @@ def track_bacteria(video_path, settings=None, result_folder=None):
 
         if settings['display video analysis']:  # Display current FPS on frame
             cv2.putText(frame,  # image
-                        'FPS: {}'.format(int(fps)),  # text
+                        'FPS: {}\n{} s'.format(int(fps), int(frame_count // fps_of_file)),  # text
                         (100, 50),  # xy coordinates
                         cv2.FONT_HERSHEY_SIMPLEX,  # font
                         0.75,  # text size
@@ -401,8 +419,11 @@ def track_bacteria(video_path, settings=None, result_folder=None):
                 break
 
     if coords:  # check if list is not empty ([] == False, otherwise True)
-        save_list(coords=coords, path=list_name,
-                  illumination=settings['include luminosity in tracking calculation'])  # Save the remainder
+        save_list(  # Save the remainder
+            coords=coords,
+            path=list_name,
+            illumination=settings['include luminosity in tracking calculation'],
+        )
 
     # if settings['save video']:
     #     out.release()
@@ -437,7 +458,7 @@ def track_bacteria(video_path, settings=None, result_folder=None):
     if error_during_read:
         logger.critical('Error during read, stopping before evaluation. File: {}'.format(video_path))
         return None
-    return df_for_eval, fps_of_file, frame_height, frame_width, list_name
+    return df_for_eval, fps_of_file, frame_height, frame_width, list_name, kwargs
 
 
 def find_good_tracks(df_passed, start, stop, lower_boundary, upper_boundary, frame_height,
@@ -614,8 +635,8 @@ def select_tracks(path_to_file=None, df=None, results_directory=None, fps=None,
             logger.critical('fps value is negative or zero; cannot continue.')
             return None
     # change from sec to frames
-    minimal_length_frames = int(round(fps, 0) * settings['minimal length in seconds'])
-    limit_track_to_frames = int(round(fps, 0) * settings['limit track length to x seconds'])
+    minimal_length_frames = int(round(fps * settings['minimal length in seconds'], 0))
+    limit_track_to_frames = int(round(fps * settings['limit track length to x seconds'], 0))
     if settings['extreme area outliers lower end in px*px'] >= settings['extreme area outliers upper end in px*px']:
         logger.critical(
             'Minimal area exclusion in px^2 larger or equal to maximum; will not be able to find tracks. '
@@ -700,7 +721,7 @@ def select_tracks(path_to_file=None, df=None, results_directory=None, fps=None,
     #     df['area'],  # track is fine
     #     np.nan  # delete otherwise
     # )
-    # -> moved to select_tracks()
+    # -> moved to find_good_tracks()
 
     # remove all rows with a NaN in them - this gets rid of empty/short tracks and empty/suspect measurements
     # As we'll later need only the remaining areas, we'll drop the NaNs
@@ -800,32 +821,36 @@ def select_tracks(path_to_file=None, df=None, results_directory=None, fps=None,
         # if good_track_result is empty, skip rest:
         if not good_track_result:
             continue
-        # get longest track from good_track_result:
         good_selection = 0  # @todo: allow switch between longest/first fragment
-        if len(good_track_result) > 1:
+        # get longest track from good_track_result:
+
+        if len(good_track_result) > 1 and not settings['allow segmented tracks']:
             good_comparator = 0
             for idx_good, (good_start, good_stop) in enumerate(good_track_result):
                 curr_length = good_stop - good_start + 1
                 if curr_length > good_comparator:
                     good_selection = idx_good
                     good_comparator = curr_length
-        good_start, good_stop = good_track_result[good_selection]
+            good_start, good_stop = good_track_result[good_selection]
+            good_track_result = [(good_start, good_stop)]
+
         # limit track length
-        if limit_track_to_frames:  # 0 == False
-            # Set limit to start time + limit
-            limit_track_length_curr = limit_track_to_frames + df.loc[good_start, 'POSITION_T'] - 1
-            # get index of time point closest to limit or maximum
-            if not settings['limit track length exactly']:
-                good_stop_curr = df.loc[good_start:good_stop, 'POSITION_T'].where(
-                    df.loc[good_start:good_stop, 'POSITION_T'] <= limit_track_length_curr).idxmax()
-            else:
-                good_stop_curr = df.loc[good_start:good_stop, 'POSITION_T'].where(
-                    df.loc[good_start:good_stop, 'POSITION_T'] == limit_track_length_curr).idxmax()
-            if np.isnan(good_stop_curr):
-                continue
-            good_stop = good_stop_curr
-            # Exclude NaNs in case no index can be found within returned track
-        good_track.append((good_start, good_stop))
+        for (good_start, good_stop) in good_track_result:
+            if limit_track_to_frames:  # 0 == False
+                # Set limit to start time + limit
+                limit_track_length_curr = limit_track_to_frames + df.loc[good_start, 'POSITION_T'] - 1
+                # get index of time point closest to limit or maximum
+                if not settings['limit track length exactly']:
+                    good_stop_curr = df.loc[good_start:good_stop, 'POSITION_T'].where(
+                        df.loc[good_start:good_stop, 'POSITION_T'] <= limit_track_length_curr).idxmax()
+                else:
+                    good_stop_curr = df.loc[good_start:good_stop, 'POSITION_T'].where(
+                        df.loc[good_start:good_stop, 'POSITION_T'] == limit_track_length_curr).idxmax()
+                if np.isnan(good_stop_curr):
+                    continue
+                good_stop = good_stop_curr
+                # Exclude NaNs in case no index can be found within returned track
+            good_track.append((good_start, good_stop))
     logger.info('All tracks before fine selection: {}, left over: {}, difference: {}'.format(
         len(track_change), len(good_track), (len(track_change) - len(good_track))))
     '''
@@ -878,7 +903,7 @@ def select_tracks(path_to_file=None, df=None, results_directory=None, fps=None,
     return df
 
 
-def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps=None, **_):
+def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps=None, **kwargs):
     """
     calculate additional info from provided .csv/data frame
 
@@ -938,9 +963,15 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     df['x_delta'] = df['POSITION_X'].diff()
     df['y_delta'] = df['POSITION_Y'].diff()
     df['t_delta'] = df['POSITION_T'].diff()
+
     # Set correct values for track starts
     df.loc[diff_tracks_start, ['x_delta', 'y_delta']] = 0
     df.loc[diff_tracks_start, ['t_delta']] = 1
+
+    # df['x_delta'] = df.groupby('TRACK_ID')['POSITION_X'].diff().fillna(0)
+    # df['y_delta'] = df.groupby('TRACK_ID')['POSITION_Y'].diff().fillna(0)
+    # df['t_delta'] = df.groupby('TRACK_ID')['POSITION_T'].diff().fillna(1)
+
     for letter in ['x', 'y', 't']:  # validate
         item = '{}_delta'.format(letter)
         if df[item].isnull().any():  # check if any value is still NaN
@@ -956,6 +987,9 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
 
     df['WIDTH'] = df['WIDTH'] / px_to_micrometre
     df['HEIGHT'] = df['HEIGHT'] / px_to_micrometre
+    if settings['split on white lines']:  # for splitting into areas
+        df['mean_x'] = df.groupby('TRACK_ID')['POSITION_X'].transform('mean')
+
     df['area'] = df['WIDTH'] * df['HEIGHT']  # calculate area of bacteria in micrometre**2
     df['bac_length'] = np.where(df['WIDTH'] >= df['HEIGHT'], df['WIDTH'], df['HEIGHT']).astype(np.float16)
 
@@ -966,47 +1000,62 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     df['travelled_dist'] = np.sqrt(np.square(df['x_delta']) + np.square(df['y_delta'])) / px_to_micrometre
     df['moving'] = df['travelled_dist'] / df['t_delta']
     # get rid of rounding errors, convert to binary:
-    # @todo: set higher limit when gsff is used; let user choose
-    df['moving'] = np.where(df['moving'] > 10 ** -3, 1, 0).astype(np.int8) # CHANGE ME TO SE MY MOVES
+    # df['moving'] = np.where(df['moving'] > 10 ** -3, 1, 0).astype(np.int8) # CHANGE ME TO SE MY MOVES
+    # df['median_speed'] = df.groupby('TRACK_ID')['moving'].transform('median') * fps
+    # df['median_speed'] = np.where(
+    #     df['median_speed'] >= 10,
+    #     df['median_speed'],
+    #     np.nan
+    # )
+    # df.dropna(inplace=True, subset=['median_speed'])
+    #
+    # # reset index to calculate track_change again
+    # if settings['verbose']:
+    #     logger.debug('Re-indexing')
+    # df.reset_index(drop=True, inplace=True)
+    # diff_tracks_start, track_change = different_tracks(df)
+    df['moving'] = np.where(
+        df['moving'] > settings['movement rounding error threshold'],
+        1,
+        0
+    ).astype(np.int8)
     if int(round(fps, 0)) & 1 == 0:  # if fps is even
         max_kernel = int(round(fps, 0)) + 1
     else:
         max_kernel = int(round(fps, 0))
-
     # median filter the values to spot general null points in movement
     for kernel_size in [3, max_kernel]:
         df['moving'] = df.groupby('TRACK_ID')['moving'].transform(medfilt, kernel_size=kernel_size)
-
+    if settings['verbose']:
+        logger.debug('Calculating angles')
     angle_diff = settings['compare angle between n frames']
     x_diff_track_for_angle = df.groupby('TRACK_ID')['POSITION_X'].diff(angle_diff)  # .fillna(method='bfill')
     y_diff_track_for_angle = df.groupby('TRACK_ID')['POSITION_Y'].diff(angle_diff)  # .fillna(method='bfill')
     df['angle_diff'] = np.arctan2(x_diff_track_for_angle, y_diff_track_for_angle)  # rad
 
-    # Angle distribution histogram
-    if settings['save angle distribution plot / bins']:  # 0 == False
-        # takes angle_diff as rad
-        angle_distribution_plot(df=df,
-                                bins_number=settings['save angle distribution plot / bins'],
-                                plot_title_name=plot_title_name,
-                                save_path=save_path.format('angle_histogram', '.png')
-                                )
     min_angle = settings['minimal angle in degrees for turning point']
-    df['angle_diff'] = np.degrees(df['angle_diff'])  # deg
+    df['angle_diff_deg'] = np.degrees(df['angle_diff'])  # deg
     # Convert to angle difference between 0 and 180
-    df['angle_diff'] = abs(df.groupby('TRACK_ID')['angle_diff'].diff().fillna(0))
-    df['angle_diff'] = np.where(360 - df['angle_diff'] <= df['angle_diff'],
-                                360 - df['angle_diff'],
-                                df['angle_diff']
+    df['angle_diff_deg'] = abs(df.groupby('TRACK_ID')['angle_diff_deg'].diff().fillna(0))
+    df['angle_diff_deg'] = np.where(360 - df['angle_diff_deg'] <= df['angle_diff_deg'],
+                                360 - df['angle_diff_deg'],
+                                df['angle_diff_deg']
                                 ).astype(np.int32)
     df['turn_points'] = np.where(
-        (df['angle_diff'] > min_angle) & (df['moving'] == 1),
-        df['angle_diff'],
+        (df['angle_diff_deg'] > min_angle) & (df['moving'] == 1),
+        df['angle_diff_deg'],
         0).astype(np.int32)
-
+    if settings['verbose']:
+        logger.debug('Normalizing x/y coordinates')
     # normalise x/y coordinates, convert from px to micrometre
     df['x_norm'] = (df['POSITION_X'].sub(df.groupby('TRACK_ID')['POSITION_X'].transform('first'))) / px_to_micrometre
     df['y_norm'] = (df['POSITION_Y'].sub(df.groupby('TRACK_ID')['POSITION_Y'].transform('first'))) / px_to_micrometre
-
+    if settings['split on white lines']:
+        df['x_median'] = df.groupby('TRACK_ID')['POSITION_X'].transform('median')
+    if settings['split on white lines']:
+        df['t_first'] = df.groupby('TRACK_ID')['POSITION_T'].transform('first')
+    if settings['verbose']:
+        logger.debug('Calculating Turning Points')
     # get local maxima
     df['turn_points'] = df.groupby('TRACK_ID')['turn_points'].transform(
         argrelextrema_groupby
@@ -1035,6 +1084,9 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     if 0 < settings['limit track length to x seconds'] / 2 < 10:
         seconds_difference_list.append(settings['limit track length to x seconds'] / 2)
     seconds_difference = min(seconds_difference_list)
+
+    if settings['verbose']:
+        logger.debug('Calculating Displacement')
     # Get largest displacement per bacterium divided by individual length over ~10 s
     df['x_fps_diff'] = df.groupby('TRACK_ID')['x_norm'].diff(int(round((fps * seconds_difference), 0)))
     df['y_fps_diff'] = df.groupby('TRACK_ID')['y_norm'].diff(int(round((fps * seconds_difference), 0)))
@@ -1045,8 +1097,11 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     # longest
     df['tp_dist_by_size_max'] = df.groupby('TRACK_ID')['tp_dist'].transform('max') / df['bac_average_size']
 
+    if settings['verbose']:
+        logger.debug('Calculating Motility Phenotype')
     # Phenotypes: 2: motile; 1: twitching; 0: immotile
     df['motility_phenotype'] = np.zeros(df.shape[0], dtype=np.int8)
+    # @todo: tracking.ini for cutoffs
     df['motility_phenotype'] = np.where(
         ((df['pdist_series_max'] > 1.5) & (df['tp_dist_by_size_max'] > 5)),  # motile
         2,
@@ -1060,6 +1115,8 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     motility_categories = ['immotile', 'twitching', 'motile']
     motility_categories = [i for i in range(len(motility_categories))]
 
+    if settings['verbose']:
+        logger.debug('Calculating per bacteria statistics')
     # df['motility_phenotype'].replace(  # replace 0 / 1 / 2 with immotile / twitching / motile
     #     {value: key for key, value in zip(motility_categories, range(0, len(motility_categories) + 1))},
     #     inplace=True)
@@ -1157,8 +1214,13 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     ],
         keys=name_of_columns, axis=1
     )
+
+    if settings['verbose']:
+        logger.debug('Deleting unneeded series')
     del turn_per_s_series, dist_series, speed_series, time_series, pdist_series, motile_series, median_speed
 
+    if settings['verbose']:
+        logger.debug('Saving stats data file')
     if settings['store generated statistical .csv file']:
         # df_stats_columns = name_of_columns
         # switch IDs to first column
@@ -1168,6 +1230,9 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
             save_path=save_path.format('statistics', '.csv')
         )
         # df_stats.reindex(columns=name_of_columns)
+
+    if settings['verbose']:
+        logger.debug('Setting Motile/Immotile/Twitching')
     # OH GREAT MOTILITY ORACLE, WHAT WILL MY BACTERIAS MOVES BE LIKE?
     nonmotile = df_stats['Motility Phenotype'].where(
         df_stats['Motility Phenotype'] == motility_categories[0]).count() / df_stats.shape[0]
@@ -1196,6 +1261,8 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
             'could not be assigned, reverted to \'perc. motile\'.')
         cut_off_parameter = name_of_columns[5]
 
+    if settings['verbose']:
+        logger.debug('Violin plots')
     cut_off_list = settings['split violin plots on']
 
     if cut_off_parameter == name_of_columns[9]:
@@ -1248,27 +1315,7 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
     # sort df_stats_seaborne by generated dict key:value pairs (in order of cut_off_list)
     df_stats_seaborne = df_stats_seaborne.iloc[df_stats_seaborne[cut_off_category].map(categories).sort_values().index]
 
-    if settings['save large plots'] or settings['save rose plot']:
-        # distance colour for plots
-        distance_min = df_stats[name_of_columns[1]].min()  # 'Distance (micrometre)',  # 1
-        distance_max = df_stats[name_of_columns[1]].max()
-        df['distance_colour'] = df.groupby('TRACK_ID')['travelled_dist'].transform('sum') - distance_min
-        df['distance_colour'] = df['distance_colour'] / df['distance_colour'].max()
-
-        if settings['save large plots']:
-            large_xy_plot(df=df,
-                          plot_title_name=plot_title_name,
-                          save_path=save_path.format('Bac_Run_Overview', '.png'),
-                          dist_min=distance_min,
-                          dist_max=distance_max,
-                          px_to_micrometre=px_to_micrometre,
-                          )
-        if settings['save rose plot']:
-            rose_graph(df=df,
-                       plot_title_name=plot_title_name,
-                       save_path=save_path.format('rose_graph', '.png'),
-                       dist_min=distance_min,
-                       dist_max=distance_max)
+    # Collect plots to be saved
     violin_plots = []
     if settings['save turning point violin plot']:
         violin_plots.append((
@@ -1317,36 +1364,167 @@ def evaluate_tracks(path_to_file, results_directory, df=None, settings=None, fps
             settings['acr violin plot min'],
             settings['acr violin plot max'],
         ))
-
-    violin_plots.append((
-        name_of_columns[11], 'Median_speed',
-        None,
-        None,
-    ))
-
-    for category, plot_name, y_min, y_max in violin_plots:
-        violin_plot(
-            df=df_stats_seaborne,
-            save_path=save_path.format(plot_name, '.png'),
-            cut_off_category=cut_off_category,
-            category=category,
-            cut_off_list=cut_off_list,
-            verbose=settings['verbose'],
-            y_min=y_min,
-            y_max=y_max,
-            plot_title_name=plot_title_name,
-        )
+    if settings['save median speed violin plot']:
+        violin_plots.append((
+            name_of_columns[11], 'Median_speed',
+            settings['speed violin plot min'],
+            settings['speed violin plot max'],
+        ))
+    distance_min = distance_max = None
 
     df_passed_columns = [
         'TRACK_ID', 'POSITION_T', 'POSITION_X', 'POSITION_Y', 'WIDTH', 'HEIGHT', 'DEGREES_ANGLE',
         'angle_diff', 'moving', 'turn_points', 'tp_of_tracks', 'travelled_dist', 'motility_phenotype'
     ]
-    df = df.loc[:, df_passed_columns]  # drop unnecessary columns
+    # df = df.loc[:, df_passed_columns]  # drop unnecessary columns
+
+    if settings['verbose']:
+        logger.debug('Saving analysed csv file')
     if settings['store final analysed .csv file']:
         save_df_to_csv(
-            df=df,
+            df=df.loc[:, df_passed_columns],
             save_path=save_path.format('analysed', '.csv')
         )
+
+    if settings['save large plots'] or settings['save rose plot']:
+        # distance colour for plots
+        distance_min = df_stats[name_of_columns[1]].min()  # 'Distance (micrometre)',  # 1
+        distance_max = df_stats[name_of_columns[1]].max()
+        df['distance_colour'] = df.groupby('TRACK_ID')['travelled_dist'].transform('sum') - distance_min
+        df['distance_colour'] = df['distance_colour'] / df['distance_colour'].max()
+
+    mod_df_list = [(df, '')]
+    median_length = None
+    values_display = None
+    if settings['split on white lines']:
+        frame_maxima = extract_frame_maxima(kwargs)
+        if not frame_maxima:
+            # Check if we can find a saved metadata .json file
+            frame_maxima = extract_frame_maxima(
+                metadata_file(
+                    path=path_to_file,
+                    additional_search_paths=os.path.join(results_directory, f"{file_name}_meta.json"),
+                    verbose=settings['verbose'],
+                )
+            )
+        if not frame_maxima:
+            logger.warning("Could not locate white line definitions, aborting split analysis")
+            settings['split on white lines'] = False
+        if frame_maxima:
+            # Check for median list length, report findings
+            median_length = np.percentile(a=[len(i) for i in frame_maxima.values()], q=[1, 5, 50, 95, 99])
+            median_length = [int(i) for i in median_length]
+            outlier_num = len([len(i) for i in frame_maxima.values() if len(i) != median_length[2]])
+            logger.info(f"White line position outliers in terms of length: {outlier_num / len(frame_maxima):.3%}")
+            logger.info(
+                f"White line length 1, 5, 50, 95, 99 percentiles: {', '.join([str(i) for i in median_length])}"
+            )
+            # Remove length outliers
+            frame_maxima = {k: i for k, i in frame_maxima.items() if len(i) == median_length[2]}
+            # Go through each set limit, create an empty array:
+            # 0 to 1, ..., n to n + 1
+            # 0 and n + 1 are x = 0 and x = screen width, respectively
+            df[f'cutoff_0'] = -1  # Inclusive minimum
+            df[f'cutoff_{median_length[2] + 1}'] = df['POSITION_X'].max() + 1  # Inclusive maximum
+            for i in range(0, median_length[2]):
+                df[f'cutoff_{i+1}'] = np.nan
+                # then go through each time slot. For each time slot, assign the limit at that
+                #  position.
+                for time_slot, values in frame_maxima.items():
+                    df[f'cutoff_{i+1}'] = np.where(
+                        df['POSITION_T'] == time_slot,
+                        values[i],
+                        df[f'cutoff_{i+1}']
+                    )
+                # After each position has been filled, forward-fill (ffill) all remaining np.nan.
+                df[f'cutoff_{i}'] = df[f'cutoff_{i}'].ffill()
+            values_display = [0]
+            values_display.extend(next(iter(frame_maxima.values())))
+            values_display.append(df['POSITION_X'].max())
+            for i in range(0, median_length[2] + 1):
+                # mod_df_list = [(df, '')]
+
+                mod_df_list.append((
+                    df.loc[
+                        (df['x_median'] >= df[f'cutoff_{i}']) &
+                        (df['x_median'] < df[f'cutoff_{i + 1}']), :
+                    ],
+                    f"X-axis split: {values_display[i]/px_to_micrometre:.2f} to {values_display[i+1]/px_to_micrometre:.2f}"
+                ))
+    if settings['split analysis at time points (s)']:
+        settings['split analysis at time points (s)'].append(int(df['POSITION_T'].max() + 10 / fps))
+        for i in range(len(settings['split analysis at time points (s)']) - 1):
+            # mod_df_list = [(df, '')]
+            mod_df_list.append((
+                df.loc[
+                    (df['t_first'] >= settings['split analysis at time points (s)'][i] * fps) &
+                    (df['t_first'] < settings['split analysis at time points (s)'][i + 1] * fps), :
+                    ],
+                f"Time split: {settings['split analysis at time points (s)'][i]} to {settings['split analysis at time points (s)'][i + 1]}"
+            ))
+    if settings['split analysis at time points (s)'] and settings['split on white lines']:
+        for a in range(len(settings['split analysis at time points (s)']) - 1):
+            for i in range(0, median_length[2] + 1):
+                # mod_df_list = [(df, '')]
+                name = f"Time split: {settings['split analysis at time points (s)'][a]} to {settings['split analysis at time points (s)'][a + 1]}"
+                name += f", X-axis split: {values_display[i]/px_to_micrometre:.2f} to {values_display[i+1]/px_to_micrometre:.2f}"
+                mod_df_list.append((
+                    df.loc[
+                        (df['t_first'] >= settings['split analysis at time points (s)'][a] * fps) &
+                        (df['t_first'] < settings['split analysis at time points (s)'][a + 1] * fps) &
+                        (df['x_median'] >= df[f'cutoff_{i}']) &
+                        (df['x_median'] < df[f'cutoff_{i + 1}']), :
+                    ],
+                    name
+                ))
+
+    # Save plots
+    for cdf, limit_name in mod_df_list:
+        _plot_title_name = f"{plot_title_name}"
+        if limit_name:
+            _plot_title_name += f" {limit_name}"
+        # Angle distribution histogram
+        if settings['save angle distribution plot / bins']:  # 0 == False
+            # takes angle_diff as rad
+            angle_distribution_plot(
+                df=cdf,  # [cdf['median_speed'] > 15]
+                bins_number=settings['save angle distribution plot / bins'],
+                plot_title_name=_plot_title_name,
+                save_path=save_path.format(safe_save_file_name(f"angle_histogram{_plot_title_name}"), '.png')
+            )
+        if settings['save large plots']:
+            large_xy_plot(
+                df=cdf,
+                plot_title_name=_plot_title_name,
+                save_path=save_path.format(safe_save_file_name(f'Bac_Run_Overview{_plot_title_name}'), '.png'),
+                dist_min=distance_min,
+                dist_max=distance_max,
+                px_to_micrometre=px_to_micrometre,
+            )
+        if settings['save rose plot']:
+            rose_graph(
+                df=cdf,
+                plot_title_name=_plot_title_name,
+                save_path=save_path.format(safe_save_file_name(f'rose_graph{_plot_title_name}'), '.png'),
+                dist_min=distance_min,
+                dist_max=distance_max,
+            )
+
+        for category, plot_name, y_min, y_max in violin_plots:
+            _plot_name = f"{plot_name}"
+            if limit_name:
+                _plot_name += f" {limit_name}"
+            violin_plot(
+                df=df_stats_seaborne[df_stats_seaborne['TRACK_ID'].isin(cdf['TRACK_ID'].unique())],
+                save_path=save_path.format(safe_save_file_name(_plot_name), '.png'),
+                cut_off_category=cut_off_category,
+                category=category,
+                cut_off_list=cut_off_list,
+                verbose=settings['verbose'],
+                y_min=y_min,
+                y_max=y_max,
+                plot_title_name=plot_title_name,
+            )
 
     end_string = 'Done evaluating file {}'.format(file_name)
     logging.info(end_string)
